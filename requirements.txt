@@ -1,0 +1,5 @@
+# Este proyecto usa SOLO la libreria estandar de Python (>= 3.9).
+# No hay dependencias externas que instalar.
+#
+# Si activas el conector del Senado o un agregador y decides usar 'requests'
+# u otra libreria, anadela aqui. Por defecto, nada que instalar.

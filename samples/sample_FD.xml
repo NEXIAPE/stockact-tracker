@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Muestra OFFLINE para el conector de la Camara (esquema simplificado).
+  Disenada para el flujo self-test:
+    * Contiene 1 DUPLICADO EXACTO (NVDA de John Smith, dos veces identico),
+      por lo que la consolidacion debe eliminar 1.
+    * Contiene 1 ENMIENDA (Filing 20240003 enmienda 20240001, corrige el
+      monto de AAPL de Jane Doe), por lo que la consolidacion debe fusionar 1.
+  NO son datos reales; sirven para validar la tuberia sin tocar la red.
+-->
+<FinancialDisclosures>
+
+  <Filing>
+    <DocID>20240001</DocID>
+    <Member>Jane Doe</Member>
+    <State>CA</State>
+    <Year>2024</Year>
+    <FilingDate>2024-05-15</FilingDate>
+    <FilingType>P</FilingType>
+    <Amends></Amends>
+    <Transactions>
+      <Transaction>
+        <Ticker>AAPL</Ticker>
+        <AssetDescription>Apple Inc.</AssetDescription>
+        <Type>P</Type>
+        <Date>2024-05-01</Date>
+        <Amount>$1,001 - $15,000</Amount>
+      </Transaction>
+      <Transaction>
+        <Ticker>MSFT</Ticker>
+        <AssetDescription>Microsoft Corp.</AssetDescription>
+        <Type>S</Type>
+        <Date>2024-05-02</Date>
+        <Amount>$15,001 - $50,000</Amount>
+      </Transaction>
+    </Transactions>
+  </Filing>
+
+  <Filing>
+    <DocID>20240002</DocID>
+    <Member>John Smith</Member>
+    <State>TX</State>
+    <Year>2024</Year>
+    <FilingDate>2024-05-16</FilingDate>
+    <FilingType>P</FilingType>
+    <Amends></Amends>
+    <Transactions>
+      <Transaction>
+        <Ticker>NVDA</Ticker>
+        <AssetDescription>NVIDIA Corp.</AssetDescription>
+        <Type>P</Type>
+        <Date>2024-05-03</Date>
+        <Amount>$50,001 - $100,000</Amount>
+      </Transaction>
+      <Transaction>
+        <Ticker>NVDA</Ticker>
+        <AssetDescription>NVIDIA Corp.</AssetDescription>
+        <Type>P</Type>
+        <Date>2024-05-03</Date>
+        <Amount>$50,001 - $100,000</Amount>
+      </Transaction>
+      <Transaction>
+        <Ticker>XOM</Ticker>
+        <AssetDescription>Exxon Mobil Corp.</AssetDescription>
+        <Type>P</Type>
+        <Date>2024-05-04</Date>
+        <Amount>$1,001 - $15,000</Amount>
+      </Transaction>
+    </Transactions>
+  </Filing>
+
+  <Filing>
+    <DocID>20240003</DocID>
+    <Member>Jane Doe</Member>
+    <State>CA</State>
+    <Year>2024</Year>
+    <FilingDate>2024-05-20</FilingDate>
+    <FilingType>P</FilingType>
+    <Amends>20240001</Amends>
+    <Transactions>
+      <Transaction>
+        <Ticker>AAPL</Ticker>
+        <AssetDescription>Apple Inc.</AssetDescription>
+        <Type>P</Type>
+        <Date>2024-05-01</Date>
+        <Amount>$15,001 - $50,000</Amount>
+      </Transaction>
+    </Transactions>
+  </Filing>
+
+</FinancialDisclosures>
