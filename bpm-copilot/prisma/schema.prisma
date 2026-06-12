@@ -1,0 +1,271 @@
+// ============================================================================
+//  Copiloto BPM — Modelo de datos (Prisma + SQLite local-first)
+// ----------------------------------------------------------------------------
+//  Principios de diseño:
+//   - "Proceso Vivo": el proceso vigente es una PROYECCIÓN versionada
+//     (ProcessVersion) que las reuniones enriquecen vía ChangeProposal.
+//   - Human-in-the-loop: ninguna reunión muta artefactos directamente; produce
+//     PROPUESTAS (ChangeProposal) que un humano aprueba/rechaza.
+//   - Trazabilidad total: todo artefacto referencia su reunión de origen.
+//   - SQLite no soporta enums/arrays nativos -> usamos String (valores
+//     documentados) y Json para listas. Migrable a Postgres sin cambiar dominio.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// --------------------------------------------------------------------------
+//  PROYECTO
+// --------------------------------------------------------------------------
+model Project {
+  id        String   @id @default(cuid())
+  name      String
+  sponsor   String?
+  status    String   @default("active") // active | on_hold | closed
+  startDate DateTime?
+  endDate   DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  processes Process[]
+}
+
+// --------------------------------------------------------------------------
+//  PROCESO  (raíz del "Proceso Vivo")
+// --------------------------------------------------------------------------
+model Process {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  name      String
+  objective String?
+  scope     String?
+  status    String  @default("discovery") // discovery | design | validation | approved | deployed
+
+  // Puntero a la versión vigente (la proyección consolidada actual).
+  currentVersionId String?  @unique
+  currentVersion   ProcessVersion? @relation("CurrentVersion", fields: [currentVersionId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  versions   ProcessVersion[] @relation("ProcessVersions")
+  meetings   Meeting[]
+  actionItems ActionItem[]
+  decisions  Decision[]
+  risks      Risk[]
+  changeLog  ChangeLogEntry[]
+  proposals  ChangeProposal[]
+  procedures Procedure[]
+
+  @@index([projectId])
+}
+
+// --------------------------------------------------------------------------
+//  VERSIÓN DEL PROCESO  (snapshot canónico inmutable del BPMN consolidado)
+// --------------------------------------------------------------------------
+model ProcessVersion {
+  id        String  @id @default(cuid())
+  processId String
+  process   Process @relation("ProcessVersions", fields: [processId], references: [id], onDelete: Cascade)
+
+  version   Int     // 1, 2, 3...
+  label     String? // ej. "v3 - tras validación con Riesgos"
+
+  // Modelo BPMN canónico interno (grafo tipado). Ver src/core/domain/bpmn.ts
+  // { events[], activities[], gateways[], flows[], roles[], systems[], dataObjects[] }
+  bpmnModel Json
+
+  createdById String?  // quién consolidó esta versión
+  createdAt   DateTime @default(now())
+
+  // Reunión que originó esta consolidación (si aplica)
+  sourceMeetingId String?
+  sourceMeeting   Meeting? @relation(fields: [sourceMeetingId], references: [id])
+
+  currentOf Process? @relation("CurrentVersion")
+
+  @@unique([processId, version])
+  @@index([processId])
+}
+
+// --------------------------------------------------------------------------
+//  REUNIÓN  (fuente principal de eventos / conocimiento)
+// --------------------------------------------------------------------------
+model Meeting {
+  id        String  @id @default(cuid())
+  processId String
+  process   Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  title        String?
+  date         DateTime @default(now())
+  participants Json     @default("[]") // string[]
+
+  // Materia prima
+  transcript     String?  // transcripción completa
+  transcriptHash String?  // hash para idempotencia (no reprocesar lo mismo)
+
+  // Resultado del procesamiento (minuta)
+  summary      String?
+  processState String  @default("uploaded") // uploaded | processing | processed | error
+  processedAt  DateTime?
+  rawExtraction Json?   // salida cruda del LLM (auditoría / reproceso)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agreements  Agreement[]
+  proposals   ChangeProposal[]
+  actionItems ActionItem[]
+  decisions   Decision[]
+  risks       Risk[]
+  changeLog   ChangeLogEntry[]
+  versions    ProcessVersion[]
+
+  @@index([processId])
+}
+
+// --------------------------------------------------------------------------
+//  ARTEFACTOS CONSOLIDADOS  (viven a nivel de Proceso, no de Reunión)
+// --------------------------------------------------------------------------
+model Agreement {
+  id        String  @id @default(cuid())
+  meetingId String
+  meeting   Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([meetingId])
+}
+
+model ActionItem {
+  id        String  @id @default(cuid())
+  processId String
+  process   Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  description String
+  owner       String?
+  status      String  @default("open") // open | in_progress | done | cancelled
+  dueDate     DateTime?
+
+  // Trazabilidad
+  sourceMeetingId String?
+  sourceMeeting   Meeting? @relation(fields: [sourceMeetingId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([processId])
+}
+
+model Decision {
+  id        String  @id @default(cuid())
+  processId String
+  process   Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  statement     String   // qué se decidió
+  rationale     String?  // justificación
+  owner         String?  // responsable
+  decidedAt     DateTime @default(now())
+
+  sourceMeetingId String?
+  sourceMeeting   Meeting? @relation(fields: [sourceMeetingId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([processId])
+}
+
+model Risk {
+  id        String  @id @default(cuid())
+  processId String
+  process   Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  description String
+  impact      String  @default("medium") // low | medium | high
+  likelihood  String  @default("medium") // low | medium | high
+  mitigation  String?
+  status      String  @default("open")   // open | mitigated | accepted | closed
+
+  sourceMeetingId String?
+  sourceMeeting   Meeting? @relation(fields: [sourceMeetingId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([processId])
+}
+
+// --------------------------------------------------------------------------
+//  HISTORIAL DE CAMBIOS  (qué, cuándo, quién, reunión origen)
+// --------------------------------------------------------------------------
+model ChangeLogEntry {
+  id        String  @id @default(cuid())
+  processId String
+  process   Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  entity      String  // process | bpmn | action_item | decision | risk | procedure
+  action      String  // created | updated | deleted | approved | rejected
+  summary     String  // descripción legible del cambio
+  diff        Json?   // detalle estructurado antes/después
+  requestedBy String?
+
+  sourceMeetingId String?
+  sourceMeeting   Meeting? @relation(fields: [sourceMeetingId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([processId])
+}
+
+// --------------------------------------------------------------------------
+//  PROPUESTA DE CAMBIO  (human-in-the-loop: el diff que el humano aprueba)
+// --------------------------------------------------------------------------
+model ChangeProposal {
+  id        String  @id @default(cuid())
+  processId String
+  process   Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+  meetingId String
+  meeting   Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  // Qué artefacto se propone tocar
+  target  String  // bpmn | action_item | decision | risk | process_meta | procedure
+  action  String  // add | update | remove
+  title   String  // resumen legible de la propuesta
+  detail  String? // explicación / cita de la transcripción
+  payload Json    // datos estructurados del cambio propuesto
+
+  status      String  @default("pending") // pending | approved | rejected
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  confidence  Float?  // 0..1 confianza del extractor
+
+  createdAt DateTime @default(now())
+
+  @@index([processId])
+  @@index([meetingId])
+}
+
+// --------------------------------------------------------------------------
+//  PROCEDIMIENTO  (documento generado desde el proceso consolidado)
+// --------------------------------------------------------------------------
+model Procedure {
+  id        String  @id @default(cuid())
+  processId String
+  process   Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  version   Int     @default(1)
+  // Secciones configurables (objetivo, alcance, roles, definiciones, políticas,
+  // desarrollo, indicadores, riesgos, anexos). Ver src/core/domain/procedure.ts
+  sections  Json
+  createdAt DateTime @default(now())
+
+  @@index([processId])
+}
