@@ -4,9 +4,11 @@
   "private": true,
   "description": "Copiloto de Diseño de Procesos BPM — fuente única de verdad para proyectos de procesos.",
   "scripts": {
+    "predev": "node scripts/ensure-env.mjs",
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
+    "presetup": "node scripts/ensure-env.mjs",
     "setup": "prisma generate && prisma db push && tsx prisma/seed.ts",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
