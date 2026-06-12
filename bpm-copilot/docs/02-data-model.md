@@ -56,6 +56,22 @@ cambio), `status` (pending·approved·rejected), `confidence`, `reviewedBy`.
 `entity`, `action`, `summary`, `diff` (JSON antes/después), `requestedBy`,
 `sourceMeeting`.
 
+### Recommendation (Recomendación del consultor)
+Lo que el sistema **propone** proactivamente (no lo dicho en reunión).
+`category` (control·missing_activity·risk·best_practice·owner·efficiency·data·
+compliance), `severity` (info·warning·critical), `title`, `detail` (por qué
+importa), `suggestion` (acción concreta), `status` (open·accepted·dismissed),
+`origin` (linter·meeting·consultant_ai), `sourceMeeting`. Aceptarla la convierte
+en `ActionItem` o `Risk`.
+
+### Stakeholder
+A nivel de **proyecto**: `name`, `role` (cargo), `area`, `source`
+(meeting·manual). Detectados desde transcripciones; alimentan el procedimiento.
+
+### Process — campos de consultoría
+`kind` (new·improvement·owner_definition·normative) orienta el análisis del
+consultor; `code` y `area` para la cabecera del procedimiento.
+
 ### Procedure (Procedimiento)
 `version`, `sections` (JSON con la estructura configurable del entregable #4 del
 brief: objetivo, alcance, roles, definiciones, políticas, desarrollo,

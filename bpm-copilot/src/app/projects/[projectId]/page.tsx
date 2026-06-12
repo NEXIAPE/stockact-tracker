@@ -67,6 +67,15 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
                 <label className="label">Nombre *</label>
                 <input name="name" required className="input" placeholder="Ej. Aprobación de facturas" />
               </div>
+              <div>
+                <label className="label">Tipo de trabajo</label>
+                <select name="kind" defaultValue="new" className="select">
+                  <option value="new">Mapear proceso nuevo (no existe)</option>
+                  <option value="improvement">Mejorar / actualizar existente</option>
+                  <option value="owner_definition">Definir owner / gobierno</option>
+                  <option value="normative">Normativo / cumplimiento</option>
+                </select>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="label">Código</label>

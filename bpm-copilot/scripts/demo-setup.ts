@@ -3,6 +3,7 @@ import { prisma } from "../src/lib/db";
 import { processMeeting } from "../src/core/ingest/pipeline";
 import { approveProposal } from "../src/core/ingest/proposals";
 import { generateProcedure } from "../src/core/ingest/procedure";
+import { analyzeProcess } from "../src/core/ingest/analyze";
 
 async function main() {
   process.env.LLM_PROVIDER = "mock";
@@ -11,7 +12,8 @@ async function main() {
   const proposals = await prisma.changeProposal.findMany({ where: { meetingId: meeting.id, status: "pending" } });
   for (const p of proposals) await approveProposal(p.id, "demo@nexia.fit");
   const procId = await generateProcedure(meeting.processId);
-  console.log(`✔ Demo lista: ${proposals.length} propuestas aprobadas, procedimiento ${procId} generado.`);
+  const recs = await analyzeProcess(meeting.processId);
+  console.log(`✔ Demo lista: ${proposals.length} propuestas aprobadas, procedimiento ${procId}, ${recs} recomendaciones.`);
   await prisma.$disconnect();
 }
 main().catch(async (e) => {

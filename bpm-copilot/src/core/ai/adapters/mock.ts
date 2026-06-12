@@ -5,8 +5,9 @@
  * desarrollo offline) y como fallback si no hay clave de Claude configurada.
  * No pretende calidad de LLM: aplica reglas simples sobre la transcripción.
  */
-import type { LlmPort, ExtractionContext } from "../port";
+import type { LlmPort, ExtractionContext, AuditContext } from "../port";
 import type { MeetingExtraction } from "../../domain/extraction";
+import type { RecommendationDraft } from "../../domain/recommendation";
 
 // Nota: heurísticas por PREFIJO (sin \b final) para capturar conjugaciones
 // (p.ej. "decid" -> "decidimos", "decidió"). Calidad deliberadamente básica.
@@ -121,6 +122,28 @@ export class MockAdapter implements LlmPort {
       `${decisions.length} decisión(es), ${actionItems.length} pendiente(s) y ${risks.length} riesgo(s). ` +
       `(Extracción heurística sin IA — configura LLM_PROVIDER=claude para análisis completo.)`;
 
+    // Consultor (heurístico): propone revisar pendientes sin responsable.
+    const recommendations: RecommendationDraft[] = [];
+    const ownerlessActions = actionItems.filter((a) => !a.owner).length;
+    if (ownerlessActions > 0) {
+      recommendations.push({
+        category: "owner",
+        severity: "warning",
+        title: `${ownerlessActions} pendiente(s) sin responsable`,
+        detail: "Pendientes sin dueño tienden a no cerrarse.",
+        suggestion: "Asigna un responsable y fecha compromiso a cada pendiente.",
+      });
+    }
+    if (risks.length === 0) {
+      recommendations.push({
+        category: "risk",
+        severity: "info",
+        title: "No se discutieron riesgos en la reunión",
+        detail: "Conviene dedicar un momento a identificar qué puede fallar.",
+        suggestion: "Agrega un punto de 'riesgos' en la siguiente reunión.",
+      });
+    }
+
     return {
       summary,
       participants,
@@ -130,6 +153,12 @@ export class MockAdapter implements LlmPort {
       decisions,
       risks,
       bpmnChanges,
+      recommendations,
     };
+  }
+
+  // El consultor por IA del proceso se cubre con el linter determinista (coste cero).
+  async auditProcess(_ctx: AuditContext): Promise<RecommendationDraft[]> {
+    return [];
   }
 }

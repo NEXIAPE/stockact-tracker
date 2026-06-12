@@ -5,11 +5,18 @@ import { createMeeting, updateProcessStatus, updateProcessMeta } from "@/app/act
 import { Breadcrumbs, StatusBadge, EmptyState, fmtDate } from "@/components/ui";
 import { BpmnView } from "@/components/BpmnView";
 import { PendientesPanel, RiesgosPanel, DecisionesPanel } from "@/components/ArtifactPanels";
+import { RecommendationsPanel } from "@/components/RecommendationsPanel";
 import { BpmnModelSchema, emptyBpmnModel } from "@/core/domain/bpmn";
 
 export const dynamic = "force-dynamic";
 
 const PROCESS_STATES = ["discovery", "design", "validation", "approved", "deployed"];
+const KIND_LABEL: Record<string, string> = {
+  new: "Proceso nuevo",
+  improvement: "Mejora de existente",
+  owner_definition: "Definición de owner",
+  normative: "Normativo / cumplimiento",
+};
 
 export default async function ProcessPage({ params }: { params: Promise<{ processId: string }> }) {
   const { processId } = await params;
@@ -23,6 +30,7 @@ export default async function ProcessPage({ params }: { params: Promise<{ proces
       risks: { where: { status: "open" }, orderBy: { createdAt: "desc" } },
       decisions: { orderBy: { decidedAt: "desc" }, take: 8 },
       changeLog: { orderBy: { createdAt: "desc" }, take: 8 },
+      recommendations: { where: { status: "open" }, orderBy: { createdAt: "desc" } },
       _count: { select: { proposals: true } },
     },
   });
@@ -50,6 +58,7 @@ export default async function ProcessPage({ params }: { params: Promise<{ proces
           {process.code && <span className="badge bg-brand-50 text-brand-700">{process.code}</span>}
           <h1 className="text-2xl font-bold text-slate-900">{process.name}</h1>
           <StatusBadge value={process.status} />
+          <span className="badge bg-violet-50 text-violet-700">{KIND_LABEL[process.kind] ?? process.kind}</span>
           {process.area && <span className="badge bg-slate-100 text-slate-600">{process.area}</span>}
           {process.currentVersion && (
             <span className="badge bg-slate-100 text-slate-600">BPMN v{process.currentVersion.version}</span>
@@ -128,6 +137,9 @@ export default async function ProcessPage({ params }: { params: Promise<{ proces
             </ul>
           )}
         </section>
+
+        {/* Recomendaciones del consultor (propone proactivamente) */}
+        <RecommendationsPanel processId={process.id} items={process.recommendations} />
       </div>
 
       {/* Reuniones */}

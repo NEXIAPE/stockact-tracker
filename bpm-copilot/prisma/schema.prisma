@@ -69,6 +69,8 @@ model Process {
   name      String
   code      String? // código corporativo, p.ej. "LOG-PD010"
   area      String? // área/grupo, p.ej. "Logística"
+  // Intención del trabajo sobre el proceso. Orienta el análisis del consultor.
+  kind      String  @default("new") // new | improvement | owner_definition | normative
   objective String?
   scope     String?
   status    String  @default("discovery") // discovery | design | validation | approved | deployed
@@ -85,9 +87,10 @@ model Process {
   actionItems ActionItem[]
   decisions  Decision[]
   risks      Risk[]
-  changeLog  ChangeLogEntry[]
-  proposals  ChangeProposal[]
-  procedures Procedure[]
+  changeLog       ChangeLogEntry[]
+  proposals       ChangeProposal[]
+  procedures      Procedure[]
+  recommendations Recommendation[]
 
   @@index([projectId])
 }
@@ -145,13 +148,14 @@ model Meeting {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  agreements  Agreement[]
-  proposals   ChangeProposal[]
-  actionItems ActionItem[]
-  decisions   Decision[]
-  risks       Risk[]
-  changeLog   ChangeLogEntry[]
-  versions    ProcessVersion[]
+  agreements      Agreement[]
+  proposals       ChangeProposal[]
+  actionItems     ActionItem[]
+  decisions       Decision[]
+  risks           Risk[]
+  changeLog       ChangeLogEntry[]
+  versions        ProcessVersion[]
+  recommendations Recommendation[]
 
   @@index([processId])
 }
@@ -275,6 +279,32 @@ model ChangeProposal {
 
   @@index([processId])
   @@index([meetingId])
+}
+
+// --------------------------------------------------------------------------
+//  RECOMENDACIÓN DEL CONSULTOR  (lo que el sistema PROPONE proactivamente)
+//  Origen: linter determinista, IA por reunión, o auditoría IA del proceso.
+// --------------------------------------------------------------------------
+model Recommendation {
+  id        String  @id @default(cuid())
+  processId String
+  process   Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  // control | missing_activity | risk | best_practice | owner | efficiency | data | compliance
+  category   String
+  severity   String  @default("warning") // info | warning | critical
+  title      String
+  detail     String? // por qué importa
+  suggestion String? // acción concreta propuesta
+  status     String  @default("open") // open | accepted | dismissed
+  origin     String  @default("linter") // linter | meeting | consultant_ai
+
+  sourceMeetingId String?
+  sourceMeeting   Meeting? @relation(fields: [sourceMeetingId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([processId])
 }
 
 // --------------------------------------------------------------------------

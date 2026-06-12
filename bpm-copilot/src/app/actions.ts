@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { processMeeting } from "@/core/ingest/pipeline";
 import { approveProposal, rejectProposal } from "@/core/ingest/proposals";
 import { generateProcedure } from "@/core/ingest/procedure";
+import { analyzeProcess } from "@/core/ingest/analyze";
 import { normalizeTranscript } from "@/core/ingest/transcript";
 
 const REVIEWER = "admin@nexia.fit"; // MVP local-first: usuario único. Multiusuario en fase SaaS.
@@ -37,6 +38,7 @@ export async function createProcess(formData: FormData) {
       name,
       code: str(formData.get("code")),
       area: str(formData.get("area")),
+      kind: String(formData.get("kind") ?? "new"),
       objective: str(formData.get("objective")),
       scope: str(formData.get("scope")),
     },
@@ -58,6 +60,44 @@ export async function updateProcessMeta(formData: FormData) {
     where: { id: processId },
     data: { code: str(formData.get("code")), area: str(formData.get("area")) },
   });
+  revalidatePath(`/processes/${processId}`);
+}
+
+// -------------------- Consultor / Recomendaciones --------------------
+export async function analyzeProcessAction(formData: FormData) {
+  const processId = String(formData.get("processId") ?? "");
+  if (!processId) return;
+  await analyzeProcess(processId);
+  revalidatePath(`/processes/${processId}`);
+}
+
+export async function acceptRecommendationAction(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const processId = String(formData.get("processId") ?? "");
+  const rec = await prisma.recommendation.findUniqueOrThrow({ where: { id } });
+  if (rec.status !== "open") return;
+
+  const text = rec.suggestion ? `${rec.title} — ${rec.suggestion}` : rec.title;
+  if (rec.category === "risk") {
+    await prisma.risk.create({
+      data: { processId, description: text, impact: rec.severity === "critical" ? "high" : "medium", sourceMeetingId: rec.sourceMeetingId },
+    });
+  } else {
+    await prisma.actionItem.create({
+      data: { processId, description: text, sourceMeetingId: rec.sourceMeetingId },
+    });
+  }
+  await prisma.recommendation.update({ where: { id }, data: { status: "accepted" } });
+  await prisma.changeLogEntry.create({
+    data: { processId, entity: "process", action: "approved", summary: `Recomendación aceptada: ${rec.title}`, requestedBy: REVIEWER },
+  });
+  revalidatePath(`/processes/${processId}`);
+}
+
+export async function dismissRecommendationAction(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const processId = String(formData.get("processId") ?? "");
+  await prisma.recommendation.update({ where: { id }, data: { status: "dismissed" } });
   revalidatePath(`/processes/${processId}`);
 }
 

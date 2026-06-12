@@ -61,6 +61,7 @@ export async function processMeeting(meetingId: string): Promise<void> {
       prisma.decision.deleteMany({ where: { sourceMeetingId: meetingId } }),
       prisma.risk.deleteMany({ where: { sourceMeetingId: meetingId } }),
       prisma.changeProposal.deleteMany({ where: { meetingId, status: "pending" } }),
+      prisma.recommendation.deleteMany({ where: { sourceMeetingId: meetingId, status: "open" } }),
     ]);
 
     // --- Persistencia de minuta + artefactos ---
@@ -149,6 +150,23 @@ export async function processMeeting(meetingId: string): Promise<void> {
           detail: c.detail ?? null,
           payload: c.fragment as object,
           status: "pending",
+        })),
+      });
+    }
+
+    // --- Recomendaciones del consultor detectadas en la reunión ---
+    if (extraction.recommendations.length) {
+      await prisma.recommendation.createMany({
+        data: extraction.recommendations.map((r) => ({
+          processId: pid,
+          sourceMeetingId: meetingId,
+          category: r.category,
+          severity: r.severity,
+          title: r.title,
+          detail: r.detail ?? null,
+          suggestion: r.suggestion ?? null,
+          status: "open",
+          origin: "meeting",
         })),
       });
     }

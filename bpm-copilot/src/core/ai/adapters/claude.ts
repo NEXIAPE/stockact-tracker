@@ -2,12 +2,15 @@
  * Adaptador Claude (Anthropic). Default del MVP.
  * Usa la Messages API vía fetch (sin SDK para mantener deps mínimas).
  */
-import type { LlmPort, ExtractionContext } from "../port";
+import type { LlmPort, ExtractionContext, AuditContext } from "../port";
 import { MeetingExtractionSchema, type MeetingExtraction } from "../../domain/extraction";
-import { SYSTEM_PROMPT, buildUserPrompt } from "../prompts";
+import { RecommendationDraftSchema, type RecommendationDraft } from "../../domain/recommendation";
+import { SYSTEM_PROMPT, buildUserPrompt, AUDIT_SYSTEM_PROMPT, buildAuditPrompt } from "../prompts";
 import { parseJsonLoose } from "../json";
+import { z } from "zod";
 
 const API_URL = "https://api.anthropic.com/v1/messages";
+const AuditResponseSchema = z.object({ recommendations: z.array(RecommendationDraftSchema).default([]) });
 
 export class ClaudeAdapter implements LlmPort {
   readonly name = "claude";
@@ -16,10 +19,7 @@ export class ClaudeAdapter implements LlmPort {
     private model: string = "claude-sonnet-4-6"
   ) {}
 
-  async extractFromTranscript(
-    transcript: string,
-    ctx: ExtractionContext
-  ): Promise<MeetingExtraction> {
+  private async complete(system: string, user: string, maxTokens = 4096): Promise<string> {
     const res = await fetch(API_URL, {
       method: "POST",
       headers: {
@@ -29,24 +29,29 @@ export class ClaudeAdapter implements LlmPort {
       },
       body: JSON.stringify({
         model: this.model,
-        max_tokens: 4096,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: buildUserPrompt(transcript, ctx) }],
+        max_tokens: maxTokens,
+        system,
+        messages: [{ role: "user", content: user }],
       }),
     });
-
     if (!res.ok) {
       const body = await res.text();
       throw new Error(`Claude API error ${res.status}: ${body.slice(0, 500)}`);
     }
-
     const data = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
-    const text = (data.content ?? [])
+    return (data.content ?? [])
       .filter((b) => b.type === "text")
       .map((b) => b.text ?? "")
       .join("\n");
+  }
 
-    const raw = parseJsonLoose(text);
-    return MeetingExtractionSchema.parse(raw);
+  async extractFromTranscript(transcript: string, ctx: ExtractionContext): Promise<MeetingExtraction> {
+    const text = await this.complete(SYSTEM_PROMPT, buildUserPrompt(transcript, ctx));
+    return MeetingExtractionSchema.parse(parseJsonLoose(text));
+  }
+
+  async auditProcess(ctx: AuditContext): Promise<RecommendationDraft[]> {
+    const text = await this.complete(AUDIT_SYSTEM_PROMPT, buildAuditPrompt(ctx), 2048);
+    return AuditResponseSchema.parse(parseJsonLoose(text)).recommendations;
   }
 }

@@ -7,6 +7,7 @@
  */
 import { z } from "zod";
 import { BpmnModelSchema } from "./bpmn";
+import { RecommendationDraftSchema } from "./recommendation";
 
 export const ExtractedAgreementSchema = z.object({
   text: z.string(),
@@ -56,6 +57,8 @@ export const MeetingExtractionSchema = z.object({
   decisions: z.array(ExtractedDecisionSchema).default([]),
   risks: z.array(ExtractedRiskSchema).default([]),
   bpmnChanges: z.array(ExtractedBpmnChangeSchema).default([]),
+  // El consultor PROPONE: gaps, controles faltantes, actividades no mapeadas…
+  recommendations: z.array(RecommendationDraftSchema).default([]),
 });
 
 export type MeetingExtraction = z.infer<typeof MeetingExtractionSchema>;
