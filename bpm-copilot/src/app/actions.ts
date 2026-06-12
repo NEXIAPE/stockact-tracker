@@ -35,6 +35,8 @@ export async function createProcess(formData: FormData) {
     data: {
       projectId,
       name,
+      code: str(formData.get("code")),
+      area: str(formData.get("area")),
       objective: str(formData.get("objective")),
       scope: str(formData.get("scope")),
     },
@@ -48,6 +50,43 @@ export async function updateProcessStatus(formData: FormData) {
   const status = String(formData.get("status") ?? "");
   await prisma.process.update({ where: { id: processId }, data: { status } });
   revalidatePath(`/processes/${processId}`);
+}
+
+export async function updateProcessMeta(formData: FormData) {
+  const processId = String(formData.get("processId") ?? "");
+  await prisma.process.update({
+    where: { id: processId },
+    data: { code: str(formData.get("code")), area: str(formData.get("area")) },
+  });
+  revalidatePath(`/processes/${processId}`);
+}
+
+// -------------------- Stakeholders --------------------
+export async function addStakeholder(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  if (!projectId || !name) return;
+  await prisma.stakeholder.upsert({
+    where: { projectId_name: { projectId, name } },
+    create: { projectId, name, role: str(formData.get("role")), area: str(formData.get("area")), source: "manual" },
+    update: { role: str(formData.get("role")), area: str(formData.get("area")) },
+  });
+  revalidatePath(`/projects/${projectId}`);
+}
+export async function updateStakeholder(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const projectId = String(formData.get("projectId") ?? "");
+  await prisma.stakeholder.update({
+    where: { id },
+    data: { role: str(formData.get("role")), area: str(formData.get("area")) },
+  });
+  revalidatePath(`/projects/${projectId}`);
+}
+export async function deleteStakeholder(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const projectId = String(formData.get("projectId") ?? "");
+  await prisma.stakeholder.delete({ where: { id } });
+  revalidatePath(`/projects/${projectId}`);
 }
 
 // -------------------- Reuniones --------------------

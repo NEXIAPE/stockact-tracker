@@ -31,6 +31,13 @@ export const ExtractedRiskSchema = z.object({
   mitigation: z.string().nullish(),
 });
 
+/** Interesado identificado en la reunión: nombre + (si se infiere) cargo y área. */
+export const ExtractedStakeholderSchema = z.object({
+  name: z.string(),
+  role: z.string().nullish(), // cargo
+  area: z.string().nullish(), // área / gerencia
+});
+
 /** Cambio propuesto sobre el modelo BPMN vigente (human-in-the-loop). */
 export const ExtractedBpmnChangeSchema = z.object({
   action: z.enum(["add", "update", "remove"]),
@@ -43,6 +50,7 @@ export const ExtractedBpmnChangeSchema = z.object({
 export const MeetingExtractionSchema = z.object({
   summary: z.string(),
   participants: z.array(z.string()).default([]),
+  stakeholders: z.array(ExtractedStakeholderSchema).default([]),
   agreements: z.array(ExtractedAgreementSchema).default([]),
   actionItems: z.array(ExtractedActionItemSchema).default([]),
   decisions: z.array(ExtractedDecisionSchema).default([]),
@@ -51,6 +59,7 @@ export const MeetingExtractionSchema = z.object({
 });
 
 export type MeetingExtraction = z.infer<typeof MeetingExtractionSchema>;
+export type ExtractedStakeholder = z.infer<typeof ExtractedStakeholderSchema>;
 export type ExtractedActionItem = z.infer<typeof ExtractedActionItemSchema>;
 export type ExtractedDecision = z.infer<typeof ExtractedDecisionSchema>;
 export type ExtractedRisk = z.infer<typeof ExtractedRiskSchema>;

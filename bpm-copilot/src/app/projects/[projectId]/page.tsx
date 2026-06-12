@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { createProcess } from "@/app/actions";
 import { Breadcrumbs, StatusBadge, EmptyState, fmtDate } from "@/components/ui";
+import { StakeholdersPanel } from "@/components/StakeholdersPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: {
+      stakeholders: { orderBy: [{ source: "asc" }, { name: "asc" }] },
       processes: {
         orderBy: { updatedAt: "desc" },
         include: { _count: { select: { meetings: true, actionItems: true, risks: true } } },
@@ -56,14 +58,24 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
           )}
         </section>
 
-        <aside>
-          <div className="card sticky top-6">
+        <aside className="grid gap-6">
+          <div className="card">
             <h2 className="section-title">Nuevo proceso</h2>
             <form action={createProcess} className="grid gap-3">
               <input type="hidden" name="projectId" value={project.id} />
               <div>
                 <label className="label">Nombre *</label>
                 <input name="name" required className="input" placeholder="Ej. Aprobación de facturas" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="label">Código</label>
+                  <input name="code" className="input" placeholder="LOG-PD010" />
+                </div>
+                <div>
+                  <label className="label">Área</label>
+                  <input name="area" className="input" placeholder="Logística" />
+                </div>
               </div>
               <div>
                 <label className="label">Objetivo</label>
@@ -76,6 +88,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
               <button className="btn justify-center" type="submit">Crear proceso</button>
             </form>
           </div>
+
+          <StakeholdersPanel projectId={project.id} items={project.stakeholders} />
         </aside>
       </div>
     </div>

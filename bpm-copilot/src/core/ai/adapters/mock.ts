@@ -45,6 +45,22 @@ function detectParticipants(text: string): string[] {
   return [...set].slice(0, 20);
 }
 
+const CARGO_RE = /\b(Gerente|Jefe|Jefa|Coordinador|Coordinadora|Analista|Supervisor|Supervisora|Asesor|Asesora|Especialista|Líder|Lider|Director|Directora|Owner|Process Designer)\b[^.,;\n]{0,45}/i;
+const AREA_RE = /\b(?:de|del|área de|area de|gerencia de|equipo de)\s+([A-ZÁÉÍÓÚÑ][\wáéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ]?[\wáéíóúñ]+){0,2})/;
+
+/** Stakeholders: participantes + cargo/área inferidos del texto cercano a su nombre. */
+function detectStakeholders(text: string): { name: string; role: string | null; area: string | null }[] {
+  const names = detectParticipants(text);
+  const lines = text.split(/\n/);
+  return names.map((name) => {
+    // Busca una línea donde se mencione a la persona con su cargo/área.
+    const ctx = lines.filter((l) => l.includes(name)).join(" ") + " " + text.slice(0, 400);
+    const cargo = ctx.match(CARGO_RE)?.[0]?.trim() ?? null;
+    const area = ctx.match(AREA_RE)?.[1]?.trim() ?? null;
+    return { name, role: cargo, area };
+  });
+}
+
 export class MockAdapter implements LlmPort {
   readonly name = "mock";
 
@@ -108,6 +124,7 @@ export class MockAdapter implements LlmPort {
     return {
       summary,
       participants,
+      stakeholders: detectStakeholders(transcript),
       agreements,
       actionItems,
       decisions,

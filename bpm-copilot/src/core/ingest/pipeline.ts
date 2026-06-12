@@ -79,6 +79,29 @@ export async function processMeeting(meetingId: string): Promise<void> {
 
     const pid = meeting.processId;
 
+    // --- Stakeholders: consolidación a nivel de PROYECTO (enriquecer, no pisar) ---
+    const projectId = meeting.process.projectId;
+    for (const s of extraction.stakeholders) {
+      const name = s.name.trim();
+      if (!name) continue;
+      const existing = await prisma.stakeholder.findUnique({
+        where: { projectId_name: { projectId, name } },
+      });
+      if (!existing) {
+        await prisma.stakeholder.create({
+          data: { projectId, name, role: s.role ?? null, area: s.area ?? null, source: "meeting" },
+        });
+      } else {
+        // Solo completa campos vacíos; nunca sobrescribe datos ya validados.
+        const data: { role?: string; area?: string } = {};
+        if (!existing.role && s.role) data.role = s.role;
+        if (!existing.area && s.area) data.area = s.area;
+        if (Object.keys(data).length) {
+          await prisma.stakeholder.update({ where: { id: existing.id }, data });
+        }
+      }
+    }
+
     if (extraction.actionItems.length) {
       await prisma.actionItem.createMany({
         data: extraction.actionItems.map((a) => ({

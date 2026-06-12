@@ -33,7 +33,29 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  processes Process[]
+  processes    Process[]
+  stakeholders Stakeholder[]
+}
+
+// --------------------------------------------------------------------------
+//  STAKEHOLDER  (interesado del proyecto: nombre, cargo, área)
+//  Se identifican automáticamente desde las transcripciones y/o manualmente.
+// --------------------------------------------------------------------------
+model Stakeholder {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  name   String
+  role   String? // cargo, p.ej. "Coordinador de Logística"
+  area   String? // área/gerencia, p.ej. "Logística"
+  source String  @default("meeting") // meeting | manual
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, name])
+  @@index([projectId])
 }
 
 // --------------------------------------------------------------------------
@@ -45,6 +67,8 @@ model Process {
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   name      String
+  code      String? // código corporativo, p.ej. "LOG-PD010"
+  area      String? // área/grupo, p.ej. "Logística"
   objective String?
   scope     String?
   status    String  @default("discovery") // discovery | design | validation | approved | deployed

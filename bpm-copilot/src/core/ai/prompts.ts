@@ -23,12 +23,17 @@ PRINCIPIOS:
   * Riesgo: amenaza al proceso/proyecto, con impacto y posible mitigación.
 - Para cambios BPMN, identificas: eventos, actividades (con rol y sistema),
   gateways, roles, sistemas, entradas y salidas.
+- Identificas a los STAKEHOLDERS (interesados): nombre de cada persona que habla
+  o es mencionada con responsabilidad, y cuando se infiera, su CARGO y su ÁREA o
+  gerencia (p.ej. "Coordinador de Logística", área "Logística"). No inventes el
+  cargo/área si no hay evidencia: deja null.
 
 SALIDA: Devuelves EXCLUSIVAMENTE un objeto JSON válido (sin markdown, sin texto
 alrededor) con esta forma:
 {
   "summary": string,                // minuta narrativa breve (3-6 frases)
   "participants": string[],
+  "stakeholders": [{ "name": string, "role": string|null, "area": string|null }],
   "agreements": [{ "text": string }],
   "actionItems": [{ "description": string, "owner": string|null, "dueDate": string|null }],
   "decisions": [{ "statement": string, "rationale": string|null, "owner": string|null }],

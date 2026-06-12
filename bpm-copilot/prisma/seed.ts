@@ -2,8 +2,9 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const SAMPLE_TRANSCRIPT = `María González: Buenos días a todos, gracias por conectarse. El objetivo de hoy es levantar el proceso de aprobación de facturas de proveedores.
-Juan Pérez: Perfecto. Hoy el proceso arranca cuando el proveedor envía la factura por correo a Cuentas por Pagar.
+const SAMPLE_TRANSCRIPT = `María González: Buenos días a todos, gracias por conectarse. Soy María González, Gerente de Finanzas. El objetivo de hoy es levantar el proceso de aprobación de facturas de proveedores.
+Juan Pérez: Hola, soy Juan Pérez, Coordinador del área de Cuentas por Pagar. Hoy el proceso arranca cuando el proveedor envía la factura por correo a Cuentas por Pagar.
+Pedro Ramírez: Buenas, Pedro Ramírez, Analista de Tesorería. Yo me encargo de la programación de pagos.
 María González: De acuerdo, entonces el evento de inicio es la recepción de la factura por correo.
 Pedro Ramírez: Cuentas por Pagar registra la factura en SAP y valida que tenga orden de compra asociada.
 Juan Pérez: Si no tiene orden de compra, se devuelve al proveedor. Eso es una decisión: acordamos que sin orden de compra no se procesa.
@@ -28,6 +29,8 @@ async function main() {
     data: {
       projectId: project.id,
       name: "Aprobación de facturas de proveedores",
+      code: "FIN-PD001",
+      area: "Finanzas",
       objective: "Estandarizar y agilizar la aprobación y pago de facturas de proveedores.",
       scope: "Desde la recepción de la factura hasta la confirmación del pago.",
       status: "discovery",

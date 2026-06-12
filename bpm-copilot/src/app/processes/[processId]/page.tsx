@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { createMeeting, updateProcessStatus } from "@/app/actions";
+import { createMeeting, updateProcessStatus, updateProcessMeta } from "@/app/actions";
 import { Breadcrumbs, StatusBadge, EmptyState, fmtDate } from "@/components/ui";
 import { BpmnView } from "@/components/BpmnView";
 import { PendientesPanel, RiesgosPanel, DecisionesPanel } from "@/components/ArtifactPanels";
@@ -47,8 +47,10 @@ export default async function ProcessPage({ params }: { params: Promise<{ proces
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
+          {process.code && <span className="badge bg-brand-50 text-brand-700">{process.code}</span>}
           <h1 className="text-2xl font-bold text-slate-900">{process.name}</h1>
           <StatusBadge value={process.status} />
+          {process.area && <span className="badge bg-slate-100 text-slate-600">{process.area}</span>}
           {process.currentVersion && (
             <span className="badge bg-slate-100 text-slate-600">BPMN v{process.currentVersion.version}</span>
           )}
@@ -93,6 +95,15 @@ export default async function ProcessPage({ params }: { params: Promise<{ proces
             <Row k="Riesgos abiertos" v={String(process.risks.length)} />
             <Row k="Alcance" v={process.scope ?? "—"} />
           </dl>
+          <form action={updateProcessMeta} className="mt-3 grid gap-2 border-t border-slate-100 pt-3">
+            <input type="hidden" name="processId" value={process.id} />
+            <label className="label">Código y área (cabecera del procedimiento)</label>
+            <div className="grid grid-cols-2 gap-2">
+              <input name="code" defaultValue={process.code ?? ""} className="input" placeholder="LOG-PD010" />
+              <input name="area" defaultValue={process.area ?? ""} className="input" placeholder="Logística" />
+            </div>
+            <button type="submit" className="btn-ghost justify-center">Guardar código/área</button>
+          </form>
         </section>
 
         {/* Pendientes / Riesgos / Decisiones (editables) */}
