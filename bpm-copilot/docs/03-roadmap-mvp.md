@@ -22,16 +22,18 @@
 
 ## Backlog priorizado (post-MVP)
 
-### Prioridad alta (siguiente iteración)
-1. **Edición manual de artefactos** (editar/cerrar pendientes, decisiones, riesgos).
-2. **Render visual del BPMN** (Mermaid en cliente, no solo código).
-3. **Catálogo de personas/roles** normalizado → mejores pendientes y RACI.
-4. **Generación de procedimiento** desde el proceso consolidado (estructura del brief).
+### Prioridad alta — Fase 2 ✅ (entregada)
+1. ✅ **Edición manual de artefactos** (alta/cambio de estado/borrado de
+   pendientes, decisiones, riesgos desde el dashboard).
+2. ✅ **Render visual del BPMN** (Mermaid en cliente, no solo código).
+3. **Catálogo de personas/roles** normalizado → mejores pendientes y RACI. *(pendiente)*
+4. ✅ **Generación de procedimiento** desde el proceso consolidado (9 secciones
+   del brief + diagrama en anexos + export Markdown).
+7. ✅ **Importar transcripción desde archivo** (.txt/.vtt/.srt de Teams).
 
 ### Prioridad media
 5. **Chunking + map-reduce** para transcripciones largas (>1h).
 6. **Diff visual** de la propuesta BPMN (antes/después) antes de aprobar.
-7. **Importar transcripción desde archivo** (.txt/.vtt/.docx de Teams).
 8. **Exportar BPMN-XML y PlantUML** (además de Mermaid).
 
 ### Prioridad baja / SaaS

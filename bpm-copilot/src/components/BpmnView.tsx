@@ -1,6 +1,7 @@
 import type { BpmnModel } from "@/core/domain/bpmn";
 import { toMermaid } from "@/core/domain/mermaid";
 import { EmptyState } from "./ui";
+import MermaidDiagram from "./MermaidDiagram";
 
 /**
  * Visualización del BPMN vigente sin dependencias de cliente:
@@ -25,6 +26,10 @@ export function BpmnView({ model }: { model: BpmnModel }) {
         <Stat label="Eventos" value={model.events.length} />
         <Stat label="Actividades" value={model.activities.length} />
         <Stat label="Gateways" value={model.gateways.length} />
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-white p-3">
+        <MermaidDiagram chart={toMermaid(model)} />
       </div>
 
       <div className="grid gap-3">

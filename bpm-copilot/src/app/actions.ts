@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { processMeeting } from "@/core/ingest/pipeline";
 import { approveProposal, rejectProposal } from "@/core/ingest/proposals";
+import { generateProcedure } from "@/core/ingest/procedure";
+import { normalizeTranscript } from "@/core/ingest/transcript";
 
 const REVIEWER = "admin@nexia.fit"; // MVP local-first: usuario único. Multiusuario en fase SaaS.
 
@@ -52,18 +54,29 @@ export async function updateProcessStatus(formData: FormData) {
 export async function createMeeting(formData: FormData) {
   const processId = String(formData.get("processId") ?? "");
   const title = str(formData.get("title"));
-  const transcript = str(formData.get("transcript"));
+  let transcript = str(formData.get("transcript"));
+
+  // Importación desde archivo (.txt / .vtt / .srt) — prevalece si se adjunta.
+  const file = formData.get("file");
+  if (file instanceof File && file.size > 0) {
+    transcript = normalizeTranscript(await file.text());
+  }
+
   if (!processId) return;
   const meeting = await prisma.meeting.create({
-    data: {
-      processId,
-      title,
-      transcript,
-      date: date(formData.get("date")) ?? new Date(),
-    },
+    data: { processId, title, transcript, date: date(formData.get("date")) ?? new Date() },
   });
   revalidatePath(`/processes/${processId}`);
   redirect(`/meetings/${meeting.id}`);
+}
+
+export async function updateMeeting(formData: FormData) {
+  const meetingId = String(formData.get("meetingId") ?? "");
+  await prisma.meeting.update({
+    where: { id: meetingId },
+    data: { title: str(formData.get("title")), transcript: str(formData.get("transcript")) },
+  });
+  revalidatePath(`/meetings/${meetingId}`);
 }
 
 export async function processMeetingAction(formData: FormData) {
@@ -75,24 +88,94 @@ export async function processMeetingAction(formData: FormData) {
 
 // -------------------- Propuestas (human-in-the-loop) --------------------
 export async function approveProposalAction(formData: FormData) {
-  const id = String(formData.get("proposalId") ?? "");
-  const meetingId = String(formData.get("meetingId") ?? "");
-  await approveProposal(id, REVIEWER);
-  revalidatePath(`/meetings/${meetingId}`);
+  await approveProposal(String(formData.get("proposalId") ?? ""), REVIEWER);
+  revalidatePath(`/meetings/${String(formData.get("meetingId") ?? "")}`);
 }
 export async function rejectProposalAction(formData: FormData) {
-  const id = String(formData.get("proposalId") ?? "");
-  const meetingId = String(formData.get("meetingId") ?? "");
-  await rejectProposal(id, REVIEWER);
-  revalidatePath(`/meetings/${meetingId}`);
+  await rejectProposal(String(formData.get("proposalId") ?? ""), REVIEWER);
+  revalidatePath(`/meetings/${String(formData.get("meetingId") ?? "")}`);
 }
 
-// -------------------- Artefactos: cambios de estado --------------------
-export async function updateActionItemStatus(formData: FormData) {
-  const id = String(formData.get("id") ?? "");
-  const status = String(formData.get("status") ?? "");
+// -------------------- Procedimiento --------------------
+export async function generateProcedureAction(formData: FormData) {
   const processId = String(formData.get("processId") ?? "");
-  await prisma.actionItem.update({ where: { id }, data: { status } });
+  await generateProcedure(processId);
+  revalidatePath(`/processes/${processId}/procedure`);
+  redirect(`/processes/${processId}/procedure`);
+}
+
+// -------------------- Pendientes (CRUD manual) --------------------
+export async function addActionItem(formData: FormData) {
+  const processId = String(formData.get("processId") ?? "");
+  const description = String(formData.get("description") ?? "").trim();
+  if (!processId || !description) return;
+  await prisma.actionItem.create({
+    data: { processId, description, owner: str(formData.get("owner")), dueDate: date(formData.get("dueDate")) },
+  });
+  revalidatePath(`/processes/${processId}`);
+}
+export async function updateActionItem(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const processId = String(formData.get("processId") ?? "");
+  const data: Record<string, unknown> = {};
+  if (formData.has("status")) data.status = String(formData.get("status"));
+  if (formData.has("owner")) data.owner = str(formData.get("owner"));
+  if (formData.has("description")) data.description = String(formData.get("description"));
+  await prisma.actionItem.update({ where: { id }, data });
+  revalidatePath(`/processes/${processId}`);
+}
+export async function deleteActionItem(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const processId = String(formData.get("processId") ?? "");
+  await prisma.actionItem.delete({ where: { id } });
+  revalidatePath(`/processes/${processId}`);
+}
+
+// -------------------- Decisiones (CRUD manual) --------------------
+export async function addDecision(formData: FormData) {
+  const processId = String(formData.get("processId") ?? "");
+  const statement = String(formData.get("statement") ?? "").trim();
+  if (!processId || !statement) return;
+  await prisma.decision.create({
+    data: { processId, statement, rationale: str(formData.get("rationale")), owner: str(formData.get("owner")) },
+  });
+  revalidatePath(`/processes/${processId}`);
+}
+export async function deleteDecision(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const processId = String(formData.get("processId") ?? "");
+  await prisma.decision.delete({ where: { id } });
+  revalidatePath(`/processes/${processId}`);
+}
+
+// -------------------- Riesgos (CRUD manual) --------------------
+export async function addRisk(formData: FormData) {
+  const processId = String(formData.get("processId") ?? "");
+  const description = String(formData.get("description") ?? "").trim();
+  if (!processId || !description) return;
+  await prisma.risk.create({
+    data: {
+      processId,
+      description,
+      impact: String(formData.get("impact") ?? "medium"),
+      mitigation: str(formData.get("mitigation")),
+    },
+  });
+  revalidatePath(`/processes/${processId}`);
+}
+export async function updateRisk(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const processId = String(formData.get("processId") ?? "");
+  const data: Record<string, unknown> = {};
+  if (formData.has("status")) data.status = String(formData.get("status"));
+  if (formData.has("mitigation")) data.mitigation = str(formData.get("mitigation"));
+  await prisma.risk.update({ where: { id }, data });
+  revalidatePath(`/processes/${processId}`);
+}
+export async function deleteRisk(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const processId = String(formData.get("processId") ?? "");
+  await prisma.risk.delete({ where: { id } });
   revalidatePath(`/processes/${processId}`);
 }
 

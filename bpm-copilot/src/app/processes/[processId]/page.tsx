@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { createMeeting, updateProcessStatus } from "@/app/actions";
 import { Breadcrumbs, StatusBadge, EmptyState, fmtDate } from "@/components/ui";
 import { BpmnView } from "@/components/BpmnView";
+import { PendientesPanel, RiesgosPanel, DecisionesPanel } from "@/components/ArtifactPanels";
 import { BpmnModelSchema, emptyBpmnModel } from "@/core/domain/bpmn";
 
 export const dynamic = "force-dynamic";
@@ -52,15 +53,18 @@ export default async function ProcessPage({ params }: { params: Promise<{ proces
             <span className="badge bg-slate-100 text-slate-600">BPMN v{process.currentVersion.version}</span>
           )}
         </div>
-        <form action={updateProcessStatus} className="flex items-center gap-2">
-          <input type="hidden" name="processId" value={process.id} />
-          <select name="status" defaultValue={process.status} className="select w-auto">
-            {PROCESS_STATES.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-          <button className="btn-ghost" type="submit">Actualizar estado</button>
-        </form>
+        <div className="flex items-center gap-2">
+          <Link href={`/processes/${process.id}/procedure`} className="btn-ghost">📄 Procedimiento</Link>
+          <form action={updateProcessStatus} className="flex items-center gap-2">
+            <input type="hidden" name="processId" value={process.id} />
+            <select name="status" defaultValue={process.status} className="select w-auto">
+              {PROCESS_STATES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+            <button className="btn-ghost" type="submit">Actualizar estado</button>
+          </form>
+        </div>
       </div>
 
       {process.objective && <p className="mb-6 max-w-3xl text-sm text-slate-600">{process.objective}</p>}
@@ -91,66 +95,10 @@ export default async function ProcessPage({ params }: { params: Promise<{ proces
           </dl>
         </section>
 
-        {/* Pendientes */}
-        <section className="card">
-          <h2 className="section-title">Pendientes abiertos</h2>
-          {process.actionItems.length === 0 ? (
-            <EmptyState title="Sin pendientes abiertos" />
-          ) : (
-            <ul className="grid gap-2 text-sm">
-              {process.actionItems.map((a) => (
-                <li key={a.id} className="rounded-lg border border-slate-200 p-2.5">
-                  <p className="text-slate-700">{a.description}</p>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
-                    <StatusBadge value={a.status} />
-                    {a.owner && <span>· {a.owner}</span>}
-                    {a.dueDate && <span>· vence {fmtDate(a.dueDate)}</span>}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        {/* Riesgos */}
-        <section className="card">
-          <h2 className="section-title">Riesgos</h2>
-          {process.risks.length === 0 ? (
-            <EmptyState title="Sin riesgos abiertos" />
-          ) : (
-            <ul className="grid gap-2 text-sm">
-              {process.risks.map((r) => (
-                <li key={r.id} className="rounded-lg border border-slate-200 p-2.5">
-                  <p className="text-slate-700">{r.description}</p>
-                  <div className="mt-1 flex items-center gap-2 text-xs">
-                    <span className="text-slate-400">Impacto</span> <StatusBadge value={r.impact} />
-                    {r.mitigation && <span className="text-slate-500">· {r.mitigation}</span>}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        {/* Decisiones */}
-        <section className="card">
-          <h2 className="section-title">Decisiones</h2>
-          {process.decisions.length === 0 ? (
-            <EmptyState title="Sin decisiones registradas" />
-          ) : (
-            <ul className="grid gap-2 text-sm">
-              {process.decisions.map((d) => (
-                <li key={d.id} className="rounded-lg border border-slate-200 p-2.5">
-                  <p className="text-slate-700">{d.statement}</p>
-                  <div className="mt-1 text-xs text-slate-500">
-                    {d.owner ? `${d.owner} · ` : ""}{fmtDate(d.decidedAt)}
-                    {d.rationale ? ` · ${d.rationale}` : ""}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        {/* Pendientes / Riesgos / Decisiones (editables) */}
+        <PendientesPanel processId={process.id} items={process.actionItems} />
+        <RiesgosPanel processId={process.id} items={process.risks} />
+        <DecisionesPanel processId={process.id} items={process.decisions} />
 
         {/* Últimos cambios */}
         <section className="card lg:col-span-3">
@@ -213,6 +161,10 @@ export default async function ProcessPage({ params }: { params: Promise<{ proces
               <div>
                 <label className="label">Transcripción</label>
                 <textarea name="transcript" rows={6} className="textarea" placeholder="Pega aquí la transcripción de Teams…" />
+              </div>
+              <div>
+                <label className="label">…o importar archivo (.txt / .vtt / .srt)</label>
+                <input type="file" name="file" accept=".txt,.vtt,.srt,text/plain" className="input file:mr-3 file:rounded file:border-0 file:bg-brand-50 file:px-3 file:py-1 file:text-brand-700" />
               </div>
               <button className="btn justify-center" type="submit">Crear y abrir</button>
             </form>
