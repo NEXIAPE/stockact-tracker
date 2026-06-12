@@ -5,6 +5,7 @@
 import type { LlmPort } from "./port";
 import { ClaudeAdapter } from "./adapters/claude";
 import { OllamaAdapter } from "./adapters/ollama";
+import { OpenAICompatAdapter } from "./adapters/openai-compat";
 import { MockAdapter } from "./adapters/mock";
 
 export function getLlm(): LlmPort {
@@ -20,6 +21,36 @@ export function getLlm(): LlmPort {
       return new MockAdapter();
     }
     return new ClaudeAdapter(key, process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6");
+  }
+
+  // Groq — gratis (Llama 3.3 70B u otros), API compatible con OpenAI.
+  if (provider === "groq") {
+    const key = process.env.GROQ_API_KEY;
+    if (!key) {
+      console.warn("[bpm-copilot] LLM_PROVIDER=groq sin GROQ_API_KEY. Usando mock.");
+      return new MockAdapter();
+    }
+    return new OpenAICompatAdapter(
+      "groq",
+      "https://api.groq.com/openai/v1",
+      key,
+      process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile"
+    );
+  }
+
+  // Google Gemini — capa gratis, vía su endpoint compatible con OpenAI.
+  if (provider === "gemini") {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) {
+      console.warn("[bpm-copilot] LLM_PROVIDER=gemini sin GEMINI_API_KEY. Usando mock.");
+      return new MockAdapter();
+    }
+    return new OpenAICompatAdapter(
+      "gemini",
+      "https://generativelanguage.googleapis.com/v1beta/openai",
+      key,
+      process.env.GEMINI_MODEL ?? "gemini-2.0-flash"
+    );
   }
 
   if (provider === "ollama") {
