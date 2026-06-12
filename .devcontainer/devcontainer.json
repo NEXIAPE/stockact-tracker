@@ -1,0 +1,17 @@
+{
+  "name": "Copiloto BPM",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Copiloto BPM",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "postCreateCommand": "cd bpm-copilot && npm install && npm run setup",
+  "customizations": {
+    "vscode": {
+      "extensions": ["Prisma.prisma"]
+    }
+  }
+}
