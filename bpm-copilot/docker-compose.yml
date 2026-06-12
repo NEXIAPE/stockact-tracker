@@ -1,0 +1,25 @@
+# Copiloto BPM — ejecución local con Docker.
+#   docker compose up        → arranca en http://localhost:3000
+#   docker compose down      → detiene (los datos persisten en el volumen)
+#
+# Para usar Claude en vez del modo gratuito (mock), crea un archivo .env junto a
+# este compose con:
+#   LLM_PROVIDER=claude
+#   ANTHROPIC_API_KEY=sk-ant-...
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=file:/app/data/dev.db
+      - LLM_PROVIDER=${LLM_PROVIDER:-mock}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+    volumes:
+      # La base de datos SQLite vive aquí y SOBREVIVE a reinicios/actualizaciones.
+      - bpm_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  bpm_data:

@@ -11,18 +11,26 @@ local-first construida con visión de escalar a equipo y, eventualmente, SaaS.
 
 ## ⚡ Quickstart
 
+**Opción Node** (requiere Node.js 20+):
 ```bash
 cd bpm-copilot
 cp .env.example .env          # ajusta LLM_PROVIDER / ANTHROPIC_API_KEY si quieres IA real
 npm install
-npm run db:push               # crea la base SQLite (prisma/dev.db)
-npm run db:seed               # datos de ejemplo (proyecto + proceso + transcripción)
+npm run setup                 # crea la base SQLite + datos de ejemplo (una vez)
 npm run dev                   # http://localhost:3000
 ```
 
+**Opción Docker** (casi un clic, requiere Docker Desktop):
+```bash
+cd bpm-copilot
+docker compose up             # http://localhost:3000 (datos persistentes)
+```
+
+📖 Guía detallada paso a paso: [`docs/11-local-setup.md`](./docs/11-local-setup.md).
+
 Abre la reunión sembrada y pulsa **«Procesar transcripción»**: se genera la
-minuta, se extraen acuerdos/pendientes/decisiones/riesgos y se proponen cambios
-BPMN que puedes **aprobar o rechazar**.
+minuta, se extraen acuerdos/pendientes/decisiones/riesgos, se proponen cambios
+BPMN que puedes **aprobar o rechazar**, y el consultor sugiere mejoras.
 
 > Sin `ANTHROPIC_API_KEY`, la app funciona igualmente con un **extractor
 > heurístico (mock)** sin coste ni red — ideal para demos y CI. La calidad real
@@ -89,6 +97,7 @@ Todos los entregables solicitados están en [`docs/`](./docs):
 | 8 | [Estrategia de almacenamiento](./docs/08-storage-strategy.md) |
 | 9 | [Diseño BPMN interno](./docs/09-bpmn-internal-design.md) |
 | 10 | [Plan de implementación por fases](./docs/10-implementation-phases.md) |
+| 11 | [Guía de instalación local (tu PC)](./docs/11-local-setup.md) |
 
 ---
 
