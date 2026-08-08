@@ -109,15 +109,50 @@ tu efectivo, y ya puedes analizar símbolos y recibir el briefing.
 | `INVEST_CACHE` | Caché de respuestas de las fuentes. | `.data_cache/` |
 | `STOCKACT_DB` | Base del rastreador STOCK Act. | `stockact.db` |
 
+### Comprobar que las fuentes responden de verdad
+
+Los tests no tocan la red, así que **no pueden demostrar que las fuentes te
+funcionen a ti**. Para eso hay un diagnóstico que las golpea de verdad desde tu
+máquina y te dice, una por una, qué respondió y qué no:
+
+```bash
+.venv/bin/python backend/diagnose.py               # AAPL y VOO por defecto
+.venv/bin/python backend/diagnose.py --ticker MSFT --etf VTI
+```
+
+Sale con código 1 si falla alguna fuente obligatoria. Ejecútalo la primera vez
+y cada vez que algo parezca raro (precios que no cambian, fundamentales
+ausentes, ninguna noticia).
+
+### Briefing automático cada día
+
+Para que al abrir la herramienta ya esté todo calculado:
+
+```bash
+.venv/bin/python backend/daily.py                  # refresca alertas + escribe el briefing
+```
+
+Hay scripts listos para programarlo en `scripts/briefing_diario.sh` (Linux y
+macOS, vía `crontab`) y `scripts/briefing_diario.bat` (Windows, vía Programador
+de tareas). **Una vez al día es suficiente**: las fuentes dan cierres diarios, y
+mirar la cartera a todas horas es una forma conocida de decidir peor.
+
 ### Tests
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest        # 98 tests
+cd backend && ../.venv/bin/python -m pytest        # 130 tests
 ```
 
-Cubren las cuatro reglas duras, la derivación de estrategia, los indicadores, la
-cartera y la API completa. **No tocan la red**: los proveedores se sustituyen
-por dobles deterministas.
+| Archivo | Qué cubre |
+|---|---|
+| `test_hard_rules.py` | Las cuatro reglas innegociables y la honestidad sobre datos viejos. |
+| `test_engine.py` | Derivación de estrategia, indicadores, cartera, guardianes integrados. |
+| `test_providers.py` | Los parsers de cada fuente contra payloads con la forma documentada. |
+| `test_api.py` | La API completa, incluidas regresiones de fallos reales encontrados probando. |
+
+**No tocan la red**: los proveedores se sustituyen por dobles deterministas y
+fixtures. Eso prueba la lógica, no la disponibilidad — para la disponibilidad
+está `diagnose.py`.
 
 ---
 
@@ -151,7 +186,9 @@ backend/app/
                universe · recommendation · ideas · alerts · briefing
   providers/   stooq · edgar · news_rss · finnhub · stockact · http
   routers/     profile · portfolio · watchlist · analysis · briefing · data
-backend/tests/ test_hard_rules · test_engine · test_api
+backend/diagnose.py   comprueba las fuentes contra la realidad
+backend/daily.py      briefing diario sin interfaz (para cron)
+backend/tests/ test_hard_rules · test_engine · test_providers · test_api
 frontend/src/  pages/ · components/ · api.js · styles.css
 
 main.py, connectors/, consolidation.py, storage.py, report.py, sectors.py

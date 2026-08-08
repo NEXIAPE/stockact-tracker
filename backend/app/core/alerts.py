@@ -49,9 +49,13 @@ class Alert:
     body: str
     evidence: List[Datum] = field(default_factory=list)
     day: date = field(default_factory=date.today)
+    # Discriminante extra para la huella cuando ``ticker`` no basta para
+    # distinguir dos avisos (p. ej. dos sectores pasados de tope el mismo día).
+    # No se muestra: sólo evita que la deduplicación se coma un aviso legítimo.
+    subject: str = ""
 
     def fingerprint(self) -> str:
-        raw = f"{self.kind}|{self.ticker}|{self.title}|{self.day.isoformat()}"
+        raw = f"{self.kind}|{self.ticker}|{self.subject}|{self.title}|{self.day.isoformat()}"
         return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
     def to_dict(self) -> dict:
@@ -222,6 +226,18 @@ def _criteria_alerts(conn, today: date) -> tuple[List[Alert], List[str]]:
     return out, problems
 
 
+# Un título por tipo de desvío. Si todos compartieran título, la huella
+# (kind|ticker|title|día) sería la misma y la deduplicación descartaría en
+# silencio todos menos el primero: te perderías avisos sin enterarte.
+_DEVIATION_TITLES = {
+    "concentracion": "Una posición pesa más de lo que marca tu estrategia",
+    "acciones_individuales": "Dependes bastante de acciones sueltas",
+    "sector": "Un sector concentra más peso del que marca tu estrategia",
+    "cash": "Tu efectivo está fuera de la banda de tu estrategia",
+    "asignacion": "Tu reparto entre acciones y bonos se ha desviado del objetivo",
+}
+
+
 def _portfolio_alerts(
     state: PortfolioState, profile: Profile, strategy: Strategy, today: date
 ) -> List[Alert]:
@@ -229,12 +245,21 @@ def _portfolio_alerts(
     for dev in check_deviations(state, profile, strategy):
         if dev.severity != "atencion":
             continue
+        title = _DEVIATION_TITLES.get(dev.kind, "Tu cartera se ha alejado de tu estrategia")
+        # El sector (o el activo) va en la huella: dos sectores pasados de tope
+        # son dos avisos distintos, no uno.
+        subject = ""
+        for datum in dev.numbers:
+            if datum.label.startswith("Peso de ") or datum.label.startswith("Peso del sector "):
+                subject = datum.label
+                break
         out.append(
             _check(
                 Alert(
                     kind="cartera",
                     ticker="",
-                    title="Tu cartera se ha alejado de tu propia estrategia",
+                    subject=f"{dev.kind}|{subject}",
+                    title=title,
                     body=f"{dev.message} {FRAMING}",
                     evidence=list(dev.numbers),
                     day=today,

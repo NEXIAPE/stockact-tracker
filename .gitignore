@@ -32,3 +32,6 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+
+# Briefings generados
+briefing_*.txt

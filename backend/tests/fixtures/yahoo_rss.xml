@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Apple Inc. (AAPL) - Yahoo Finance</title>
+    <link>https://finance.yahoo.com/quote/AAPL</link>
+    <item>
+      <title>Apple presenta resultados del cuarto trimestre</title>
+      <link>https://finance.yahoo.com/news/apple-q4-123456.html</link>
+      <pubDate>Thu, 06 Aug 2026 18:32:00 +0000</pubDate>
+      <description>&lt;p&gt;La compañía superó las expectativas de ingresos.&lt;/p&gt;</description>
+      <guid>apple-q4-123456</guid>
+    </item>
+    <item>
+      <title>Analistas revisan sus previsiones para Apple</title>
+      <link>https://finance.yahoo.com/news/apple-analysts-789.html</link>
+      <pubDate>Wed, 05 Aug 2026 11:05:00 GMT</pubDate>
+      <description>Varias casas ajustan su precio objetivo.</description>
+    </item>
+    <item>
+      <title>Titular sin fecha</title>
+      <link>https://finance.yahoo.com/news/sin-fecha.html</link>
+    </item>
+    <item>
+      <title>Titular sin enlace</title>
+      <pubDate>Tue, 04 Aug 2026 09:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>

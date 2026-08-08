@@ -356,3 +356,46 @@ class TestDefectsFoundInManualRun:
     def test_briefing_carries_the_same_notice(self, client):
         self._setup(client)
         assert "no se suman" in client.get("/api/briefing").json()["ideas_sizing_notice"].lower()
+
+    def test_every_portfolio_deviation_gets_its_own_alert(self, client):
+        """Si todos los avisos de cartera comparten título, la deduplicación se
+        come todos menos uno y te pierdes avisos sin enterarte."""
+        client.post("/api/profile", json=PROFILE)
+        # Cartera deliberadamente mala: concentrada, cargada de acciones sueltas,
+        # pasada de sector y con exceso de efectivo.
+        client.put("/api/portfolio/holdings",
+                   json={"ticker": "AAPL", "shares": 50, "avg_cost": 50, "asset_type": "accion"})
+        client.put("/api/portfolio/holdings",
+                   json={"ticker": "MSFT", "shares": 40, "avg_cost": 50, "asset_type": "accion"})
+        client.put("/api/portfolio/cash", json={"amount": 9000})
+        client.post("/api/alerts/refresh")
+
+        alerts = [a for a in client.get("/api/alerts").json()["alerts"] if a["kind"] == "cartera"]
+        deviations = [
+            d for d in client.get("/api/portfolio").json()["deviations"]
+            if d["severity"] == "atencion"
+        ]
+        assert len(alerts) == len(deviations), (
+            f"{len(deviations)} desvíos de atención generaron sólo {len(alerts)} alerta(s)."
+        )
+        # Dos posiciones pasadas de tope comparten título legítimamente; lo que no
+        # puede repetirse es el CONTENIDO, porque eso sería el mismo aviso dos veces.
+        assert len({a["body"] for a in alerts}) == len(alerts), "Avisos duplicados."
+
+    def test_two_over_weight_sectors_are_two_alerts(self, client):
+        from datetime import date as _date
+
+        from app.core.alerts import Alert
+
+        title = "Un sector concentra más peso del que marca tu estrategia"
+        a = Alert(kind="cartera", ticker="", subject="sector|Peso del sector Tecnología",
+                  title=title, body="Tecnología pesa de más.", day=_date(2026, 8, 8))
+        b = Alert(kind="cartera", ticker="", subject="sector|Peso del sector Salud",
+                  title=title, body="Salud pesa de más.", day=_date(2026, 8, 8))
+        assert a.fingerprint() != b.fingerprint(), (
+            "Dos sectores distintos pasados de tope deben ser dos avisos, no uno."
+        )
+        # El mismo aviso el mismo día sí debe colapsar.
+        again = Alert(kind="cartera", ticker="", subject="sector|Peso del sector Salud",
+                      title=title, body="Salud pesa de más.", day=_date(2026, 8, 8))
+        assert b.fingerprint() == again.fingerprint()
