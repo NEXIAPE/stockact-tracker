@@ -1,175 +1,168 @@
-# Rastreador modular de divulgaciones STOCK Act (v1: solo Cámara)
+# Herramienta de inversión personal (edición de un solo usuario)
 
-Una herramienta sencilla y **modular** para seguir las divulgaciones de
-transacciones bursátiles que los miembros del Congreso de EE. UU. están
-obligados a publicar bajo la **STOCK Act**. Esta versión 1 trae **activo el
-conector de la Cámara de Representantes (House)**; el del Senado y el de un
-agregador externo vienen como **esqueletos desactivados**, listos para que los
-actives cuando quieras.
+Te ayuda a **decidir** en qué invertir: te sugiere ideas de compra / mantener /
+evitar / vender, con sus razones, sus números citados, sus riesgos y su
+contra-argumento. Tú decides y **tú ejecutas a mano** en tu bróker.
 
-> ⚠️ **Este informe es DESCRIPTIVO, no da recomendaciones de inversión.** Sólo
-> resume datos que ya son públicos. No es asesoramiento financiero.
+> **Esta herramienta NUNCA envía órdenes ni se conecta a un bróker para operar.**
+> Es de solo lectura. Y **no es asesoría financiera ni tributaria**: invertir
+> desde Perú en un bróker extranjero tiene implicancias que debes consultar con
+> un contador.
 
----
-
-## ¿Qué hace?
-
-1. **Recolecta** divulgaciones desde uno o más conectores (fuentes).
-2. **Consolida**: elimina duplicados exactos y resuelve enmiendas (una
-   corrección reemplaza al dato original).
-3. **Persiste** en una base de datos SQLite y detecta **novedades** entre
-   ejecuciones (sólo te muestra lo nuevo).
-4. **Genera un informe diario en texto** con:
-   - Divulgaciones nuevas.
-   - Top 10 tickers de los últimos 30 días.
-   - Desglose por sector.
+Este repositorio contiene además el **rastreador STOCK Act** original (CLI en
+Python puro), que se conserva y se integra como señal de contexto. Ver
+[más abajo](#el-rastreador-stock-act-original).
 
 ---
 
-## Para principiantes: cómo empezar
+## Qué hace
 
-Necesitas **Python 3.9 o superior**. No hay que instalar nada más (sólo se usa
-la librería estándar).
+| Pantalla | Qué te da |
+|---|---|
+| **Perfil / onboarding** | Define capital, aporte mensual, riesgo, horizonte y objetivos → deriva una estrategia mínima, explicando el porqué de cada regla. |
+| **Briefing diario** | Resumen priorizado: cómo va tu cartera, alertas, desvíos frente a tu plan e ideas que encajan contigo. |
+| **Analizar** | Escribe un símbolo y recibe la recomendación estructurada completa. |
+| **Cartera** | Registras lo que ya tienes; se valora con precios reales y se revisa concentración y diversificación. |
+| **Watchlist** | Símbolos que sigues, con criterios propios de aviso. |
+| **Alertas** | Noticias, movimientos fuertes, criterios cumplidos y desvíos de cartera — siempre como «vale la pena mirar». |
+| **Ajustes** | Estado de las fuentes, exportar todo, borrar todo. |
 
-### 1. Comprueba que todo funciona (sin tocar Internet)
+### Cada recomendación trae, sin excepción
+
+Idea clara y tamaño sugerido · tesis en lenguaje simple · evidencia con números
+reales y citados · riesgos concretos · **el argumento más fuerte en contra** ·
+encaje con tu cartera y tu estrategia · nivel de confianza y qué le falta.
+
+---
+
+## Las reglas duras (y cómo se hacen cumplir)
+
+No son buenas intenciones: son validaciones que **bloquean la respuesta**.
+
+| Regla | Cómo se hace cumplir | Dónde |
+|---|---|---|
+| **Nunca un número inventado** | Todo valor viaja en un `DataPoint` con fuente y fecha. Un guardián escanea la prosa y falla si aparece una cifra que no procede de un dato citado. Lo que falta se devuelve como `Missing` con su motivo, nunca como cero. | `core/datapoint.py`, `core/guards.py` |
+| **Ninguna recomendación sin riesgos ni contra-caso** | Validación obligatoria antes de devolver; si falta, error 500 explicando el defecto. El frontend lo vuelve a comprobar y se niega a pintarla. | `core/guards.py`, `components/Recommendation.jsx` |
+| **Sugiere, nunca ejecuta** | El cliente HTTP sólo expone `get`. Un test escanea todo el repositorio buscando rastros de ejecución de órdenes y falla si aparece alguno. | `providers/http.py`, `tests/test_hard_rules.py` |
+| **Nada de urgencia ni FOMO** | Linter de texto sobre alertas, ideas y recomendaciones: rechaza «compra ya», «oportunidad única», signos de exclamación… | `core/guards.py` |
+| **Honestidad sobre lo que falta** | Cada dato lleva su antigüedad; el briefing termina con el estado de las fuentes; «no pude consultar la SEC» nunca se confunde con «no existe». | `core/briefing.py`, `providers/edgar.py` |
+| **Tus datos son tuyos** | Un solo archivo SQLite local, exportable e íntegramente borrable. | `/api/data/export`, `/api/data/wipe` |
+
+### Protecciones de principiante
+
+- Sesgo explícito y **visible en el desglose de la puntuación** hacia ETFs
+  amplios frente a acciones individuales.
+- Tope estricto por acción individual (5 % mientras seas principiante).
+- Aviso si te sobre-concentras en un activo, un sector o en acciones sueltas.
+- El tamaño sugerido nunca se come el colchón mínimo de efectivo de tu estrategia.
+- Recordatorio permanente de que esto no es asesoría profesional ni tributaria.
+
+---
+
+## Fuentes de datos
+
+Opción elegida: **gratuitas sin clave + una clave gratuita opcional**.
+
+| Fuente | Aporta | Costo | Límites honestos |
+|---|---|---|---|
+| **Stooq** | Precios de cierre diario, histórico | gratis, sin clave | Sólo cierre diario, sin intradía. Sin garantía de servicio. |
+| **SEC EDGAR (XBRL)** | Fundamentales oficiales (10-K) | gratis, sin clave | No cubre ETFs. Datos anuales. Exige User-Agent identificable. |
+| **RSS (Yahoo Finance + SEC)** | Titulares y presentaciones oficiales | gratis, sin clave | Cobertura desigual. Los titulares son interpretación, no hechos. |
+| **Finnhub** *(opcional)* | Cotización fresca, PER, beta, márgenes | plan gratuito con clave | Requiere `FINNHUB_API_KEY`. Si se agota la cuota, se dice y se cae a las fuentes sin clave. |
+| **STOCK Act local** | Divulgaciones del Congreso EE. UU. | gratis | Desfase de hasta ~45 días. **Peso cero** en la recomendación: es contexto. |
+
+### Lo que la herramienta NO tiene, a propósito
+
+- **Sentimiento de mercado.** Ninguna fuente gratuita lo da de forma fiable, así
+  que ese bloque aparece vacío en vez de relleno con algo inventado.
+- **Ratio de gastos y composición de ETFs.** No están disponibles de forma
+  fiable. En vez de escribirlos de memoria en el código (que sería inventarlos),
+  el catálogo enlaza la ficha oficial del emisor y tú registras el dato con la
+  fecha en que lo leíste; entonces aparece citado como cualquier otro.
+
+---
+
+## Puesta en marcha
 
 ```bash
-python main.py --self-test
+# Backend
+python3 -m venv .venv
+.venv/bin/pip install -r backend/requirements.txt
+INVEST_CONTACT="tu-email@ejemplo.com" .venv/bin/uvicorn app.main:app --app-dir backend --reload
+# API en http://127.0.0.1:8000  ·  documentación en /docs
+
+# Frontend (otra terminal)
+cd frontend && npm install && npm run dev
+# Interfaz en http://localhost:5173
 ```
 
-Esto valida la tubería **offline** usando `samples/sample_FD.xml`. Debe
-**eliminar 1 duplicado** y **fusionar 1 enmienda**, y terminar con `EXITO ✅`.
+Primer uso: entra en **Perfil**, completa el onboarding, registra tu cartera y
+tu efectivo, y ya puedes analizar símbolos y recibir el briefing.
 
-### 2. Procesar un archivo local de ejemplo (tubería completa)
+### Variables de entorno
+
+| Variable | Para qué | Por defecto |
+|---|---|---|
+| `INVEST_CONTACT` | Tu email en el User-Agent. **La SEC lo exige**; ponlo. | `usuario-personal@example.com` |
+| `FINNHUB_API_KEY` | Activa la fuente opcional con clave. | vacío (desactivada) |
+| `INVEST_DB` | Ruta de tu base de datos. | `personal_invest.db` |
+| `INVEST_CACHE` | Caché de respuestas de las fuentes. | `.data_cache/` |
+| `STOCKACT_DB` | Base del rastreador STOCK Act. | `stockact.db` |
+
+### Tests
 
 ```bash
+cd backend && ../.venv/bin/python -m pytest        # 98 tests
+```
+
+Cubren las cuatro reglas duras, la derivación de estrategia, los indicadores, la
+cartera y la API completa. **No tocan la red**: los proveedores se sustituyen
+por dobles deterministas.
+
+---
+
+## El rastreador STOCK Act original
+
+El CLI que ya existía en este repositorio se conserva intacto y funcionando:
+
+```bash
+python main.py --self-test                    # valida la tubería offline
 python main.py --ingest-file samples/sample_FD.xml
 ```
 
-Esto consolida, guarda en `stockact.db` y escribe un informe
-`informe_AAAA-MM-DD.txt`. (Ambos están en `.gitignore` y se regeneran.)
+Rastrea las divulgaciones de operaciones bursátiles que los miembros del
+Congreso de EE. UU. deben publicar. La herramienta de inversión lo lee, si está
+disponible, y lo muestra como **contexto de color** en el análisis de un ticker.
 
-### 3. Ejecución "en vivo"
+**No influye en ninguna recomendación.** Los Periodic Transaction Reports pueden
+presentarse hasta ~45 días después de la operación: describen el pasado, no el
+presente, y no son una señal de compra ni de venta.
 
-```bash
-python main.py
-```
-
-En v1 el `fetch` en vivo de la Cámara queda como punto de extensión (ver
-abajo). El esqueleto de descarga ya es **cortés** (User-Agent + rate limiting).
+Los conectores del Senado y del agregador externo siguen como esqueletos
+desactivados; sus instrucciones de activación están en cada archivo.
 
 ---
 
-## Estructura del proyecto
+## Estructura
 
 ```
-.
-├── main.py            # Orquestador + modo --self-test
-├── models.py          # Formato común: la clase Disclosure
-├── consolidation.py   # Dedup exacto + resolución de enmiendas
-├── storage.py         # SQLite + detección incremental de novedades
-├── report.py          # Informe diario en texto (descriptivo)
-├── httpclient.py      # HTTP cortés: User-Agent + rate limiting + reintentos
-├── sectors.py         # Mapa ticker -> sector (offline)
-├── connectors/
-│   ├── base.py        # Interfaz común de conector
-│   ├── house.py       # Cámara — ACTIVO
-│   ├── senate.py      # Senado — esqueleto DESACTIVADO
-│   └── aggregator.py  # Agregador externo — esqueleto DESACTIVADO
-├── samples/
-│   └── sample_FD.xml  # Datos de muestra para --self-test
-├── scripts/
-│   ├── cron_mac.sh
-│   ├── cron_linux.sh
-│   └── cron_windows.bat
-└── requirements.txt   # (vacío: sólo librería estándar)
+backend/app/
+  core/        datapoint · guards · profile · portfolio · indicators
+               universe · recommendation · ideas · alerts · briefing
+  providers/   stooq · edgar · news_rss · finnhub · stockact · http
+  routers/     profile · portfolio · watchlist · analysis · briefing · data
+backend/tests/ test_hard_rules · test_engine · test_api
+frontend/src/  pages/ · components/ · api.js · styles.css
+
+main.py, connectors/, consolidation.py, storage.py, report.py, sectors.py
+    → rastreador STOCK Act original (Python puro, sin dependencias)
 ```
 
 ---
 
-## Conectores modulares
+## Advertencia final
 
-Todos los conectores producen objetos `Disclosure` (formato común), así que las
-capas superiores no dependen de la fuente.
-
-| Conector   | Estado        | Fuente                                            |
-|------------|---------------|---------------------------------------------------|
-| House      | ✅ ACTIVO     | Clerk de la Cámara (financial disclosures / PTR)  |
-| Senate     | ⛔ desactivado | eFD del Senado (`efdsearch.senate.gov`)           |
-| Aggregator | ⛔ desactivado | Agregador externo de terceros (a tu elección)     |
-
-### Cómo activar el Senado
-
-1. Abre `connectors/senate.py` y pon `enabled = True`.
-2. Implementa `fetch()` siguiendo las instrucciones del encabezado del archivo
-   (aceptar el acuerdo del portal, buscar, abrir cada PTR, mapear a `Disclosure`).
-3. Usa siempre `self.http` para respetar User-Agent y rate limiting.
-
-### Cómo activar el agregador externo
-
-1. **Revisa los términos de uso y la licencia** del agregador que elijas.
-2. Abre `connectors/aggregator.py`, pon `enabled = True`, configura `API_BASE`
-   (y la API key por variable de entorno, no hardcodeada).
-3. Implementa `fetch()` y mapea a `Disclosure` con `source = "aggregator"`.
-
-### Cómo activar el `fetch` en vivo de la Cámara
-
-El parseo (`parse`) ya está implementado para el esquema de muestra. Para datos
-reales necesitas descargar el ZIP anual del Clerk
-(`disclosures-clerk.house.gov`) y adaptar el parseo a su formato concreto
-(índice XML + PTR). El método `fetch()` en `connectors/house.py` documenta el
-endpoint y deja el punto de extensión.
-
----
-
-## ⚠️ Advertencias importantes (léelas)
-
-- **Rate limits.** Las fuentes oficiales pueden limitar o bloquear clientes
-  agresivos. El `HttpClient` aplica un retardo mínimo entre solicitudes y se
-  identifica con un User-Agent. **No reduzcas el intervalo** ni lances muchas
-  ejecuciones seguidas. **Una vez al día es más que suficiente.** Pon tu
-  contacto real en `httpclient.py` (`CONTACT`).
-
-- **Términos de uso.** Cada fuente (Cámara, Senado, agregadores) tiene sus
-  propios términos y licencia. Es **tu responsabilidad** leerlos y cumplirlos
-  antes de activar un conector, especialmente con agregadores comerciales.
-
-- **Desfase legal de ~45 días.** Los Periodic Transaction Reports (PTR) pueden
-  presentarse hasta **~45 días después** de la operación (y a veces más). Lo que
-  veas "hoy" describe el **pasado**; no es información en tiempo real.
-
-- **No es asesoramiento financiero.** El informe es **descriptivo**. No genera,
-  ni debe generar, recomendaciones de compra/venta. El `--self-test` incluso
-  verifica que el informe no contenga recomendaciones.
-
----
-
-## Programación automática (cron)
-
-Ejecuta el rastreador **una vez al día** (suficiente, dado el desfase de ~45
-días). Hay scripts listos en `scripts/`:
-
-- **macOS:** `scripts/cron_mac.sh` (vía `crontab`)
-- **Linux:** `scripts/cron_linux.sh` (vía `crontab` o systemd timer)
-- **Windows:** `scripts/cron_windows.bat` (vía Programador de tareas)
-
-Cada script incluye las instrucciones de instalación en su encabezado.
-
----
-
-## Persistencia y novedades
-
-- Los datos se guardan en `stockact.db` (SQLite).
-- Cada divulgación se identifica por su **clave de negocio** (legislador +
-  ticker + tipo + fecha + monto). Al guardar, sólo se insertan las **no vistas**;
-  esas son las novedades del día.
-- `stockact.db` y los informes están en `.gitignore`: son artefactos locales
-  que se regeneran.
-
----
-
-## Licencia y datos
-
-Este código es una herramienta de seguimiento. Los **datos** provienen de
-fuentes oficiales de divulgación pública (y, si lo activas, de terceros con su
-propia licencia). Respeta siempre los términos de cada fuente.
+Esta herramienta es un apoyo a la decisión construido para un único usuario. No
+predice el futuro, no sustituye a un asesor y su motor es un conjunto de reglas
+simples y auditables, no una inteligencia de mercado. Cuando no sepa algo, te lo
+dirá. Cuando te sugiera algo, te dirá también por qué podría estar equivocada.
