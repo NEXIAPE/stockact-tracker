@@ -406,3 +406,73 @@ class TestConfigFile:
         monkeypatch.delenv("INVEST_CONTACT", raising=False)
         cfg = self._reload(monkeypatch, env)
         assert cfg.CONTACT_EMAIL.endswith("example.com")
+
+
+class TestHouseIndexConnector:
+    """El indice oficial de la Camara: presentaciones, no transacciones.
+
+    Es importante que esto no invente tickers. Sin ticker el dato vale poco,
+    pero un ticker inventado valdria mucho menos que nada.
+    """
+
+    def _zip_with(self, xml: bytes) -> bytes:
+        import io
+        import zipfile
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("2026FD.xml", xml)
+        return buf.getvalue()
+
+    INDEX = b"""<?xml version="1.0"?>
+    <FinancialDisclosure>
+      <Member><Last>Perez</Last><First>Maria</First><FilingType>P</FilingType>
+        <StateDst>CA12</StateDst><Year>2026</Year><FilingDate>3/14/2026</FilingDate>
+        <DocID>20026001</DocID></Member>
+      <Member><Last>Smith</Last><First>John</First><FilingType>O</FilingType>
+        <StateDst>TX07</StateDst><Year>2026</Year><FilingDate>5/15/2026</FilingDate>
+        <DocID>20026002</DocID></Member>
+    </FinancialDisclosure>"""
+
+    def _connector(self):
+        import sys
+
+        sys.path.insert(0, str(REPO_ROOT))
+        from connectors.house import HouseConnector
+
+        return HouseConnector()
+
+    def test_only_periodic_transaction_reports_are_kept(self):
+        """Un informe anual no dice nada sobre operaciones concretas."""
+        res = self._connector().parse_index(self._zip_with(self.INDEX), 2026)
+        assert len(res) == 1
+        assert res[0].filer_name == "Maria Perez"
+
+    def test_it_never_invents_a_ticker(self):
+        res = self._connector().parse_index(self._zip_with(self.INDEX), 2026)
+        assert res[0].ticker == ""
+        assert "no trae" in res[0].asset_description.lower() or "PDF" in res[0].asset_description
+
+    def test_it_links_the_pdf_where_the_detail_lives(self):
+        res = self._connector().parse_index(self._zip_with(self.INDEX), 2026)
+        assert res[0].extra["pdf_url"].endswith("/2026/20026001.pdf")
+
+    def test_the_transaction_format_still_parses(self):
+        """El formato con transacciones (el del self-test) no puede romperse."""
+        sample = (REPO_ROOT / "samples" / "sample_FD.xml").read_bytes()
+        res = self._connector().parse(sample)
+        assert {d.ticker for d in res} >= {"AAPL", "MSFT"}
+
+    def test_a_corrupt_download_explains_itself(self):
+        import pytest as _pytest
+
+        with _pytest.raises(ValueError) as err:
+            self._connector().parse_index(b"esto no es un zip", 2026)
+        assert "ZIP" in str(err.value)
+
+    def test_tickerless_rows_never_reach_the_investment_tool(self):
+        """El proveedor de contexto busca por ticker, asi que las filas sin
+        ticker no pueden contaminar ninguna recomendacion."""
+        from app.providers import stockact
+
+        assert stockact.fetch_signal("") is None

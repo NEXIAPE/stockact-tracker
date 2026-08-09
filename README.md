@@ -248,9 +248,25 @@ Rastrea las divulgaciones de operaciones bursátiles que los miembros del
 Congreso de EE. UU. deben publicar. La herramienta de inversión lo lee, si está
 disponible, y lo muestra como **contexto de color** en el análisis de un ticker.
 
-**No influye en ninguna recomendación.** Los Periodic Transaction Reports pueden
-presentarse hasta ~45 días después de la operación: describen el pasado, no el
-presente, y no son una señal de compra ni de venta.
+```bash
+python main.py                # descarga el índice del año en curso
+python main.py --year 2025    # otro año
+```
+
+**Qué te da y qué no.** El ZIP anual del Clerk contiene el **índice de
+presentaciones**: quién presentó un Periodic Transaction Report y cuándo. **No
+contiene las transacciones.** El ticker y el importe están en el PDF de cada
+PTR, y esos PDFs son con frecuencia escaneos. Así que la fuente oficial gratuita
+te dice *quién* movió algo y *cuándo lo declaró*, pero no *qué compró*; se
+guarda el enlace al PDF para que lo abras tú. Para obtener tickers
+automáticamente hace falta procesar los PDFs o usar un agregador de terceros
+(`connectors/aggregator.py` es el punto de extensión; revisa sus términos de uso
+antes de activarlo).
+
+**No influye en ninguna recomendación**, y no es un descuido. Los PTR pueden
+presentarse hasta ~45 días después de la operación: describen el pasado, a veces
+un pasado de mes y medio. Para cuando tú lo ves, el mercado hace mucho que lo
+sabe. Es contexto de color, nunca una señal de compra o venta.
 
 Los conectores del Senado y del agregador externo siguen como esqueletos
 desactivados; sus instrucciones de activación están en cada archivo.

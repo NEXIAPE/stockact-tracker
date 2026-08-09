@@ -39,16 +39,22 @@ SAMPLE_PATH = os.path.join(os.path.dirname(__file__), "samples", "sample_FD.xml"
 # ---------------------------------------------------------------------------
 # Recoleccion
 # ---------------------------------------------------------------------------
-def gather_live() -> List[Disclosure]:
+def gather_live(year: int | None = None) -> List[Disclosure]:
     """Recolecta de todos los conectores ACTIVOS (House en v1)."""
     collected: List[Disclosure] = []
     for conn in active_connectors():
         try:
-            items = conn.fetch()
-            print(f"  [{conn.name}] {len(items)} divulgaciones")
+            items = conn.fetch(year) if conn.name == "house" else conn.fetch()
+            con_ticker = sum(1 for d in items if d.ticker)
+            print(f"  [{conn.name}] {len(items)} divulgaciones ({con_ticker} con ticker)")
+            if items and con_ticker == 0:
+                from connectors.house import INDEX_ONLY_NOTICE
+                print(f"      AVISO: {INDEX_ONLY_NOTICE}")
             collected.extend(items)
         except NotImplementedError as exc:
             print(f"  [{conn.name}] fetch en vivo no implementado: {exc}")
+        except Exception as exc:
+            print(f"  [{conn.name}] fallo la descarga: {exc}")
     return collected
 
 
@@ -172,6 +178,7 @@ def main(argv: List[str] | None = None) -> int:
     parser.add_argument("--self-test", action="store_true", help="Valida el flujo offline.")
     parser.add_argument("--ingest-file", metavar="XML", help="Procesa un XML local (formato Camara).")
     parser.add_argument("--db", default=DEFAULT_DB, help=f"Ruta de la BD SQLite (def: {DEFAULT_DB}).")
+    parser.add_argument("--year", type=int, help="Anio del indice de la Camara a descargar (def: el actual).")
     args = parser.parse_args(argv)
 
     if args.self_test:
@@ -182,7 +189,7 @@ def main(argv: List[str] | None = None) -> int:
         disclosures = ingest_file(args.ingest_file)
     else:
         print("== EJECUCION EN VIVO (conectores activos) ==")
-        disclosures = gather_live()
+        disclosures = gather_live(args.year)
 
     report = run_pipeline(disclosures, args.db)
     out_path = write_report(report)
