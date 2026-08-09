@@ -29,7 +29,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from app.config import CONTACT_EMAIL, FINNHUB_ENABLED, USER_AGENT  # noqa: E402
-from app.providers import edgar, finnhub, news_rss, stockact, stooq  # noqa: E402
+from app.providers import edgar, finnhub, news_rss, prices, stockact  # noqa: E402
 from app.providers.http import FetchError  # noqa: E402
 
 OK = "  OK "
@@ -73,39 +73,50 @@ def header(text: str) -> None:
     print("-" * len(text))
 
 
-def check_stooq(rep: Report, ticker: str) -> None:
-    header(f"Stooq — precios de cierre diario ({ticker})")
-    started = time.monotonic()
-    try:
-        series = stooq.fetch_daily(ticker)
-    except FetchError as exc:
-        rep.fail(
-            "No se pudo obtener la serie de precios.",
-            f"{exc}\nSin esta fuente NO hay análisis posible: es la única obligatoria.",
-        )
-        return
-    except Exception:
-        rep.fail("Error inesperado parseando Stooq.", traceback.format_exc(limit=3))
-        return
+def check_prices(rep: Report, ticker: str) -> None:
+    """Prueba TODOS los proveedores de precios y reporta cada uno por separado.
 
-    elapsed = time.monotonic() - started
-    last = series.last
-    age = (__import__("datetime").date.today() - last.day).days
-    rep.ok(
-        f"{len(series.bars)} cierres, último el {last.day} a {last.close} USD ({elapsed:.1f}s)",
-        f"Fuente citada: {series.source.name} — {series.source.url}",
-    )
-    if len(series.bars) < 250:
-        rep.warn(
-            "La serie es corta (menos de un año).",
-            "Las medias de 200 días y la volatilidad perderán significado.",
+    Sólo hace falta que UNO funcione: la herramienta usa el primero que responda.
+    Por eso el fallo se cuenta una vez, no una por proveedor caído.
+    """
+    header(f"Precios de cierre diario ({ticker})")
+    print(f"         Orden configurado: {', '.join(prices.order())}")
+
+    resultados = prices.probe(ticker)
+    algun_ok = False
+
+    for r in resultados:
+        if r["ok"]:
+            algun_ok = True
+            age = (__import__("datetime").date.today() - r["last_day"]).days
+            rep.ok(
+                f"{r['name']}: {r['bars']} cierres, último el {r['last_day']} a {r['last_close']} USD",
+                f"Se citará como: {r['source']}",
+            )
+            if r["bars"] < 250:
+                rep.warn(
+                    f"{r['name']} devolvió una serie corta (menos de un año).",
+                    "Las medias de 200 días y la volatilidad perderán significado.",
+                )
+            if age > 7:
+                rep.warn(
+                    f"{r['name']}: el último cierre tiene {age} días.",
+                    "La herramienta lo mostrará como dato viejo y bajará la confianza.",
+                )
+        else:
+            rep.line(FAIL if not algun_ok else WARN, f"{r['name']}: no respondió.", r["error"])
+
+    if not algun_ok:
+        rep.fail(
+            "NINGÚN proveedor de precios respondió.",
+            "Sin precios la herramienta no puede analizar nada. Si uno de ellos sí funciona\n"
+            "en tu red, puedes fijar el orden con la variable PRICE_PROVIDERS.",
         )
-    if age > 7:
-        rep.warn(
-            f"El último cierre tiene {age} días.",
-            "Puede ser un símbolo poco líquido o una fuente desactualizada. "
-            "La herramienta lo mostrará como dato viejo y bajará la confianza.",
-        )
+    else:
+        usable = [r["key"] for r in resultados if r["ok"]]
+        if len(usable) < len(resultados):
+            print(f"         Basta con uno: se usará «{usable[0]}». Sugerencia para tu red:")
+            print(f"         PRICE_PROVIDERS={','.join(usable)}")
 
 
 def check_edgar(rep: Report, ticker: str) -> None:
@@ -279,8 +290,8 @@ def main() -> int:
     print("es deliberadamente lento y cortés para no abusar de servicios gratuitos.")
 
     rep = Report()
-    check_stooq(rep, args.etf)
-    check_stooq(rep, args.ticker)
+    check_prices(rep, args.etf)
+    check_prices(rep, args.ticker)
     check_edgar(rep, args.ticker)
     check_etf(rep, args.etf)
     if not args.skip_news:

@@ -1,0 +1,12 @@
+{"chart":{"result":[{"meta":{"currency":"USD","symbol":"VOO","exchangeName":"PCX",
+ "instrumentType":"ETF","regularMarketPrice":501.77,"chartPreviousClose":494.10,
+ "exchangeTimezoneName":"America/New_York","gmtoffset":-14400},
+ "timestamp":[1785412800,1785499200,1785758400,1785844800,1785931200,1786048200],
+ "indicators":{
+   "quote":[{"open":[494.10,497.50,498.90,500.10,495.60,499.40],
+             "high":[497.88,499.10,501.44,500.99,499.73,502.10],
+             "low":[493.02,495.77,497.10,494.31,495.00,498.85],
+             "close":[497.11,498.62,500.85,495.02,499.18,501.77],
+             "volume":[4210033,3877210,4501992,5120448,3990120,4102885]}],
+   "adjclose":[{"adjclose":[496.20,497.70,499.93,494.11,498.26,501.77]}]}}],
+ "error":null}}

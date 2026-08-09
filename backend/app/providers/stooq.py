@@ -15,40 +15,18 @@ from __future__ import annotations
 
 import csv
 import io
-from dataclasses import dataclass
 from datetime import date, datetime
 from typing import List, Optional
 
 from ..config import CACHE_TTL
 from ..core.datapoint import Source
 from .http import FetchError, client
+# Bar y PriceSeries viven en series.py para que varios proveedores compartan el
+# mismo formato. Se re-exportan aquí por compatibilidad con importaciones previas.
+from .series import Bar, PriceSeries  # noqa: F401
 
 BASE = "https://stooq.com/q/d/l/"
 WEB = "https://stooq.com/q/d/?s={sym}"
-
-
-@dataclass(frozen=True)
-class Bar:
-    day: date
-    open: float
-    high: float
-    low: float
-    close: float
-    volume: float
-
-
-@dataclass(frozen=True)
-class PriceSeries:
-    ticker: str
-    bars: List[Bar]
-    source: Source
-
-    @property
-    def last(self) -> Bar:
-        return self.bars[-1]
-
-    def closes(self) -> List[float]:
-        return [b.close for b in self.bars]
 
 
 def _symbol(ticker: str) -> str:

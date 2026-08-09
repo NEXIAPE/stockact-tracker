@@ -23,7 +23,7 @@ from datetime import date, timedelta
 from typing import List, Optional
 
 from ..db import dumps, now_iso
-from ..providers import news_rss, stooq
+from ..providers import news_rss, prices
 from ..providers.http import FetchError
 from . import indicators as ind
 from .datapoint import DataPoint, Datum, user_source
@@ -82,7 +82,7 @@ def _price_alerts(tickers: List[str], today: date) -> tuple[List[Alert], List[st
     problems: List[str] = []
     for ticker in tickers:
         try:
-            series = stooq.fetch_daily(ticker)
+            series = prices.fetch_daily(ticker)
         except FetchError as exc:
             problems.append(f"{ticker}: sin precio ({exc}).")
             continue
@@ -158,7 +158,7 @@ def _criteria_alerts(conn, today: date) -> tuple[List[Alert], List[str]]:
         if target is None and max_dd is None:
             continue
         try:
-            series = stooq.fetch_daily(ticker)
+            series = prices.fetch_daily(ticker)
         except FetchError as exc:
             problems.append(f"{ticker}: sin precio ({exc}).")
             continue

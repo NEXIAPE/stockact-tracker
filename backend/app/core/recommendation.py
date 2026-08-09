@@ -25,7 +25,7 @@ from datetime import date
 from typing import Dict, List, Optional, Tuple
 
 from ..config import STALE_PRICE_DAYS
-from ..providers import edgar, finnhub, news_rss, stockact, stooq
+from ..providers import edgar, finnhub, news_rss, prices, stockact
 from ..providers.http import FetchError
 from . import indicators as ind
 from .datapoint import DataPoint, Datum, Missing, Source, derived_source, user_source
@@ -145,7 +145,7 @@ class TickerData:
     ticker: str
     asset_type: str
     name: str
-    series: stooq.PriceSeries
+    series: prices.PriceSeries
     fundamentals: edgar.Fundamentals
     metrics: Dict[str, DataPoint]
     quote: Optional[DataPoint]
@@ -163,13 +163,13 @@ def gather(ticker: str, asset_type_hint: Optional[str] = None) -> TickerData:
     etf_info = lookup_etf(ticker)
 
     try:
-        series = stooq.fetch_daily(ticker)
+        series = prices.fetch_daily(ticker)
     except FetchError as exc:
         raise InsufficientData(
             ticker,
             f"No se pudo obtener ningún precio de {ticker}. Sin precio no hay análisis "
             f"posible, y prefiero decírtelo a inventar algo. Detalle: {exc}",
-            ["Stooq"],
+            [prices.PROVIDERS[k][0] for k in prices.order()],
         ) from exc
 
     fundamentals = edgar.fetch_fundamentals(ticker, asset_type)

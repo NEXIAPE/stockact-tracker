@@ -38,10 +38,10 @@ def client(tmp_path, monkeypatch):
             source=Source(name="Stooq (doble de test)", url="https://example.invalid"),
         )
 
-    monkeypatch.setattr("app.providers.stooq.fetch_daily", fake_daily)
-    monkeypatch.setattr("app.core.portfolio.stooq.fetch_daily", fake_daily)
-    monkeypatch.setattr("app.core.recommendation.stooq.fetch_daily", fake_daily)
-    monkeypatch.setattr("app.core.alerts.stooq.fetch_daily", fake_daily)
+    monkeypatch.setattr("app.providers.prices.fetch_daily", fake_daily)
+    monkeypatch.setattr("app.core.portfolio.prices.fetch_daily", fake_daily)
+    monkeypatch.setattr("app.core.recommendation.prices.fetch_daily", fake_daily)
+    monkeypatch.setattr("app.core.alerts.prices.fetch_daily", fake_daily)
 
     # Sin red para fundamentales ni noticias.
     from app.providers import edgar
@@ -183,7 +183,7 @@ class TestAnalysis:
         def boom(ticker, ttl=None):
             raise FetchError("símbolo desconocido")
 
-        monkeypatch.setattr("app.core.recommendation.stooq.fetch_daily", boom)
+        monkeypatch.setattr("app.core.recommendation.prices.fetch_daily", boom)
         r = client.get("/api/analyze/ZZZZ")
         assert r.status_code == 422
         assert r.json()["detail"]["error"] == "sin_datos_suficientes"

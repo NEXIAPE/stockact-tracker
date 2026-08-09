@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Dict, List, Optional
 
-from ..providers import stooq
+from ..providers import prices
 from ..providers.http import FetchError
 from .datapoint import DataPoint, Missing, Source, user_source
 from .profile import Profile, Strategy
@@ -243,7 +243,7 @@ def load_portfolio(conn, today: Optional[date] = None) -> PortfolioState:
             notes=row["notes"] or "",
         )
         try:
-            series = stooq.fetch_daily(ticker)
+            series = prices.fetch_daily(ticker)
             bar = series.last
             pos.price = DataPoint(
                 label="Último cierre",

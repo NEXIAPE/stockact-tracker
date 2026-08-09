@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 from app.core.datapoint import DataPoint
-from app.providers import edgar, finnhub, news_rss, stooq
+from app.providers import edgar, finnhub, news_rss, prices, stooq, yahoo_chart
 from app.providers.http import FetchError
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -281,3 +281,107 @@ class TestFinnhubParser:
     def test_quota_error_degrades_to_none_not_to_a_made_up_number(self, serve):
         serve({"/quote": FetchError("429 quota agotada")})
         assert finnhub.fetch_quote("AAPL") is None
+
+
+# ---------------------------------------------------------------------------
+class TestYahooChartParser:
+    """Proveedor de precios de respaldo. Existe porque Stooq no es accesible
+    desde todas las redes, y sin precios la herramienta no puede opinar."""
+
+    def test_parses_bars_in_order(self, serve):
+        serve({"query1.finance.yahoo.com": load("yahoo_chart.json")})
+        series = yahoo_chart.fetch_daily("VOO")
+        assert len(series.bars) == 6
+        assert series.last.day == date(2026, 8, 6)
+        assert [b.day for b in series.bars] == sorted(b.day for b in series.bars)
+
+    def test_prefers_adjusted_close(self, serve):
+        """El cierre ajustado corrige splits y dividendos; usar el crudo
+        distorsionaría medias móviles y rentabilidad a un año."""
+        serve({"query1.finance.yahoo.com": load("yahoo_chart.json")})
+        series = yahoo_chart.fetch_daily("VOO")
+        assert series.bars[0].close == pytest.approx(496.20)   # ajustado
+        assert series.bars[0].close != pytest.approx(497.11)   # crudo
+
+    def test_source_is_cited_as_yahoo(self, serve):
+        serve({"query1.finance.yahoo.com": load("yahoo_chart.json")})
+        series = yahoo_chart.fetch_daily("VOO")
+        assert "Yahoo" in series.source.name
+        assert series.source.url.startswith("https://")
+
+    def test_gaps_are_dropped_not_filled(self, serve):
+        serve({"query1.finance.yahoo.com": load("yahoo_chart_gaps.json")})
+        series = yahoo_chart.fetch_daily("XYZ")
+        assert len(series.bars) == 3
+        assert all(b.close > 0 for b in series.bars)
+
+    def test_delisted_symbol_raises(self, serve):
+        serve({"query1.finance.yahoo.com": load("yahoo_chart_error.json")})
+        with pytest.raises(FetchError):
+            yahoo_chart.fetch_daily("ZZZZ")
+
+    def test_dot_becomes_dash_in_the_symbol(self, monkeypatch):
+        seen = {}
+
+        def fake_get(self, url, *, ttl=0, headers=None, cache_key=None):
+            seen["url"] = url
+            return load("yahoo_chart.json")
+
+        monkeypatch.setattr("app.providers.http.PoliteClient.get", fake_get)
+        yahoo_chart.fetch_daily("BRK.B")
+        assert "BRK-B" in seen["url"]
+
+
+class TestPriceFallback:
+    """Un solo proveedor caído no puede dejar la herramienta inservible."""
+
+    def test_uses_the_first_provider_that_answers(self, serve):
+        serve({"stooq.com": load("stooq_voo.csv"),
+               "query1.finance.yahoo.com": load("yahoo_chart.json")})
+        series = prices.fetch_daily("VOO")
+        assert "Stooq" in series.source.name
+
+    def test_falls_back_when_the_first_is_blocked(self, serve):
+        serve({"stooq.com": FetchError("Tunnel connection failed: 403 Forbidden"),
+               "query1.finance.yahoo.com": load("yahoo_chart.json")})
+        series = prices.fetch_daily("VOO")
+        assert "Yahoo" in series.source.name
+
+    def test_citation_names_who_actually_served_it(self, serve):
+        """Citar a Stooq un dato que sirvió Yahoo sería una cita falsa."""
+        serve({"stooq.com": FetchError("bloqueado"),
+               "query1.finance.yahoo.com": load("yahoo_chart.json")})
+        series = prices.fetch_daily("VOO")
+        assert "Stooq" not in series.source.name
+
+    def test_all_down_raises_listing_every_reason(self, serve):
+        serve({"stooq.com": FetchError("403 Forbidden"),
+               "query1.finance.yahoo.com": FetchError("timeout")})
+        with pytest.raises(FetchError) as err:
+            prices.fetch_daily("VOO")
+        assert "Stooq" in str(err.value) and "Yahoo" in str(err.value)
+
+    def test_order_is_configurable(self, serve, monkeypatch):
+        monkeypatch.setenv("PRICE_PROVIDERS", "yahoo,stooq")
+        serve({"stooq.com": load("stooq_voo.csv"),
+               "query1.finance.yahoo.com": load("yahoo_chart.json")})
+        assert "Yahoo" in prices.fetch_daily("VOO").source.name
+
+    def test_a_single_provider_can_be_forced(self, serve, monkeypatch):
+        monkeypatch.setenv("PRICE_PROVIDERS", "yahoo")
+        serve({"stooq.com": load("stooq_voo.csv"),
+               "query1.finance.yahoo.com": load("yahoo_chart.json")})
+        assert prices.order() == ["yahoo"]
+        assert "Yahoo" in prices.fetch_daily("VOO").source.name
+
+    def test_bad_value_falls_back_to_the_default_order(self, monkeypatch):
+        monkeypatch.setenv("PRICE_PROVIDERS", "inventado,otro")
+        assert prices.order() == prices.DEFAULT_ORDER
+
+    def test_probe_reports_every_provider(self, serve):
+        serve({"stooq.com": FetchError("403"),
+               "query1.finance.yahoo.com": load("yahoo_chart.json")})
+        resultados = prices.probe("VOO")
+        assert len(resultados) == 2
+        assert [r["ok"] for r in resultados] == [False, True]
+        assert resultados[0]["error"]

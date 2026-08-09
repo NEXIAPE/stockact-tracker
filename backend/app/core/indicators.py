@@ -17,7 +17,7 @@ import math
 from datetime import date
 from typing import List, Optional, Sequence
 
-from ..providers.stooq import PriceSeries
+from ..providers.series import PriceSeries
 from .datapoint import DataPoint, Datum, Missing, derived_source
 
 TRADING_DAYS_YEAR = 252

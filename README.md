@@ -65,7 +65,8 @@ Opción elegida: **gratuitas sin clave + una clave gratuita opcional**.
 
 | Fuente | Aporta | Costo | Límites honestos |
 |---|---|---|---|
-| **Stooq** | Precios de cierre diario, histórico | gratis, sin clave | Sólo cierre diario, sin intradía. Sin garantía de servicio. |
+| **Stooq** | Precios de cierre diario, histórico | gratis, sin clave | Sólo cierre diario, sin intradía. Sin garantía de servicio, y **no accesible desde todas las redes**. |
+| **Yahoo Finance (chart)** | Precios de cierre diario, respaldo del anterior | gratis, sin clave | Endpoint no oficial: puede cambiar sin aviso. Por eso es respaldo, no principal. |
 | **SEC EDGAR (XBRL)** | Fundamentales oficiales (10-K) | gratis, sin clave | No cubre ETFs. Datos anuales. Exige User-Agent identificable. |
 | **RSS (Yahoo Finance + SEC)** | Titulares y presentaciones oficiales | gratis, sin clave | Cobertura desigual. Los titulares son interpretación, no hechos. |
 | **Finnhub** *(opcional)* | Cotización fresca, PER, beta, márgenes | plan gratuito con clave | Requiere `FINNHUB_API_KEY`. Si se agota la cuota, se dice y se cae a las fuentes sin clave. |
@@ -122,6 +123,21 @@ tu efectivo, y ya puedes analizar símbolos y recibir el briefing.
 | `INVEST_DB` | Ruta de tu base de datos. | `personal_invest.db` |
 | `INVEST_CACHE` | Caché de respuestas de las fuentes. | `.data_cache/` |
 | `STOCKACT_DB` | Base del rastreador STOCK Act. | `stockact.db` |
+| `PRICE_PROVIDERS` | Orden de los proveedores de precios, separados por comas. Útil si uno no es accesible desde tu red. | `stooq,yahoo` |
+
+### Si los precios no te funcionan
+
+El precio es el único dato sin el cual la herramienta no puede opinar, así que
+hay **dos proveedores** y se usa el primero que responda; la cita siempre nombra
+al que realmente sirvió el dato. Stooq no es accesible desde todas las redes.
+Si el diagnóstico te dice que uno falla y el otro no, fija el orden:
+
+```powershell
+$env:PRICE_PROVIDERS = "yahoo,stooq"     # deja esta linea en config.local.ps1
+```
+```bash
+export PRICE_PROVIDERS="yahoo,stooq"     # macOS y Linux
+```
 
 ### Comprobar que las fuentes responden de verdad
 
