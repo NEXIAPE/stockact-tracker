@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 from app.core.datapoint import DataPoint
-from app.providers import edgar, finnhub, news_rss, prices, stooq, yahoo_chart
+from app.providers import edgar, finnhub, news_rss, prices, stooq, twelvedata, yahoo_chart
 from app.providers.http import FetchError
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -385,3 +385,68 @@ class TestPriceFallback:
         assert len(resultados) == 2
         assert [r["ok"] for r in resultados] == [False, True]
         assert resultados[0]["error"]
+
+
+class TestTwelveDataParser:
+    """Tercer proveedor de precios, opcional y con clave."""
+
+    @pytest.fixture(autouse=True)
+    def _enable(self, monkeypatch):
+        monkeypatch.setenv("TWELVEDATA_API_KEY", "clave-de-prueba")
+
+    def test_disabled_without_a_key(self, monkeypatch, serve):
+        monkeypatch.delenv("TWELVEDATA_API_KEY", raising=False)
+        monkeypatch.setattr(twelvedata, "api_key", lambda: "")
+        serve({})
+        assert twelvedata.enabled() is False
+        with pytest.raises(FetchError) as err:
+            twelvedata.fetch_daily("VOO")
+        assert "opcional" in str(err.value).lower()
+
+    def test_parses_and_sorts_oldest_first(self, serve):
+        serve({"api.twelvedata.com": load("twelvedata.json")})
+        series = twelvedata.fetch_daily("VOO")
+        assert [b.day for b in series.bars] == sorted(b.day for b in series.bars)
+        assert series.last.close == pytest.approx(501.77)
+
+    def test_unparsable_fields_fall_back_to_the_close(self, serve):
+        """Una fila con open/high ilegibles conserva su cierre real en vez de
+        descartarse o rellenarse con cero."""
+        serve({"api.twelvedata.com": load("twelvedata.json")})
+        series = twelvedata.fetch_daily("VOO")
+        primera = series.bars[0]
+        assert primera.close == pytest.approx(500.85)
+        assert primera.open == pytest.approx(500.85)
+
+    def test_a_quota_error_arriving_with_http_200_is_detected(self, serve):
+        """Twelve Data devuelve los errores con status 200 y status:error dentro."""
+        serve({"api.twelvedata.com": load("twelvedata_error.json")})
+        with pytest.raises(FetchError) as err:
+            twelvedata.fetch_daily("VOO")
+        assert "API credits" in str(err.value)
+
+    def test_the_key_never_reaches_the_cache_key(self, monkeypatch):
+        seen = {}
+
+        def fake_get(self, url, *, ttl=0, headers=None, cache_key=None):
+            seen["url"] = url
+            seen["cache_key"] = cache_key
+            return load("twelvedata.json")
+
+        monkeypatch.setattr("app.providers.http.PoliteClient.get", fake_get)
+        twelvedata.fetch_daily("VOO")
+        assert "clave-de-prueba" in seen["url"]
+        assert "clave-de-prueba" not in seen["cache_key"]
+
+    def test_it_is_last_in_the_default_order(self, monkeypatch):
+        """Su cuota diaria solo debe gastarse si los que no tienen clave fallan."""
+        monkeypatch.setattr(prices.twelvedata, "enabled", lambda: True)
+        monkeypatch.setattr(prices, "setting", lambda name, default="": "")
+        assert prices.order()[-1] == "twelvedata"
+
+    def test_it_is_skipped_entirely_when_not_configured(self, monkeypatch):
+        """Un proveedor con clave sin configurar no debe ni intentarse: fallaria
+        siempre y solo anadiria ruido al diagnostico."""
+        monkeypatch.setattr(prices.twelvedata, "enabled", lambda: False)
+        monkeypatch.setattr(prices, "setting", lambda name, default="": "")
+        assert "twelvedata" not in prices.order()

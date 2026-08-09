@@ -22,7 +22,7 @@ Python puro), que se conserva y se integra como señal de contexto. Ver
 | **Perfil / onboarding** | Define capital, aporte mensual, riesgo, horizonte y objetivos → deriva una estrategia mínima, explicando el porqué de cada regla. |
 | **Briefing diario** | Resumen priorizado: cómo va tu cartera, alertas, desvíos frente a tu plan e ideas que encajan contigo. |
 | **Analizar** | Escribe un símbolo y recibe la recomendación estructurada completa. |
-| **Cartera** | Registras lo que ya tienes; se valora con precios reales y se revisa concentración y diversificación. |
+| **Cartera** | Registras lo que ya tienes; se valora con precios reales y se revisa concentración y diversificación. Incluye **tu tesis** de cada posición y **cómo te va frente a un fondo amplio**. |
 | **Watchlist** | Símbolos que sigues, con criterios propios de aviso. |
 | **Alertas** | Noticias, movimientos fuertes, criterios cumplidos y desvíos de cartera — siempre como «vale la pena mirar». |
 | **Ajustes** | Estado de las fuentes, exportar todo, borrar todo. |
@@ -46,6 +46,32 @@ mantienen deliberadamente separadas:
 Toda idea de vender o recortar añade sus riesgos propios: que realizar la
 operación la vuelve definitiva, su coste tributario, y lo caro que sale acertar
 dos veces al intentar volver a entrar.
+
+### Tu tesis: la única señal de venta que vale
+
+Al registrar una posición anotas **por qué la compraste** y **qué te haría dejar
+de creerlo**. Sin eso, lo único que la herramienta puede mirar para opinar sobre
+vender es el precio — y el precio es la peor señal posible.
+
+La herramienta **no evalúa tu tesis** y no finge hacerlo: es texto libre y un
+motor de reglas no puede juzgarlo. Lo que hace es ponértela delante cada vez que
+revisa la posición, recordarte literalmente lo que tú escribiste como motivo
+para salir cuando aparecen señales de deterioro, y avisarte si llevas más de
+seis meses sin releerla. Si falta, se dice: aparece como hueco en el nivel de
+confianza y en el briefing.
+
+### Cómo te va de verdad
+
+La pregunta incómoda no es «¿he ganado dinero?» sino **«¿me habría ido mejor
+comprando un fondo amplio y no volviendo a mirar?»**. Se reconstruye qué habría
+pasado si cada aporte que registraste hubiera ido, ese mismo día, a un índice de
+referencia. Comparar rentabilidades a secas sería tramposo porque no invertiste
+todo el mismo día.
+
+Dos salvaguardas contra un resultado halagüeño y falso: si tu bitácora no cubre
+todas tus posiciones **no se compara nada** (el valor de lo no registrado
+contaría como ganancia salida de la nada), y con menos de un año o menos de
+cinco operaciones se dice que aún es casi todo suerte.
 
 ### Cada recomendación trae, sin excepción
 

@@ -8,6 +8,7 @@
 
 import { useState } from 'react'
 import { Datum, DatumList, Money, Notice } from './Data.jsx'
+import { PriceChart } from './PriceChart.jsx'
 
 const ACTION_STYLE = {
   comprar: 'act act--buy',
@@ -54,6 +55,8 @@ export function RecommendationCard({ rec, compact = false }) {
 
       <p className="rec__thesis">{rec.thesis}</p>
 
+      <ThesisBlock review={rec.thesis_review} ticker={rec.ticker} />
+
       <SizingBlock sizing={rec.suggested_position} alternative={rec.sizing_is_alternative} />
 
       {rec.beginner_warnings?.length > 0 && (
@@ -72,6 +75,10 @@ export function RecommendationCard({ rec, compact = false }) {
 
       {open && (
         <div className="rec__body">
+          <Section title="Cómo ha ido el precio">
+            <PriceChart ticker={rec.ticker} />
+          </Section>
+
           <Section title="Evidencia a favor y en contra">
             <p className="muted small">
               Cada cifra viene de una fuente real, con su fecha. Lo que no se pudo obtener
@@ -151,6 +158,39 @@ export function RecommendationCard({ rec, compact = false }) {
         </div>
       )}
     </article>
+  )
+}
+
+function ThesisBlock({ review, ticker }) {
+  if (!review) return null
+
+  if (!review.has_thesis) {
+    return (
+      <Notice kind="warn" title={review.headline}>
+        {review.explanation}
+        <p className="small">
+          Puedes anotarla en <strong>Cartera</strong>, junto a {ticker}.
+        </p>
+      </Notice>
+    )
+  }
+
+  return (
+    <div className="thesis">
+      <span className="thesis__label">{review.headline}</span>
+      <blockquote className="thesis__text">{review.thesis}</blockquote>
+      {review.invalidation && (
+        <p className="small">
+          <strong>Dejarías de creerlo si:</strong> {review.invalidation}
+        </p>
+      )}
+      <p className="thesis__question">{review.question}</p>
+      <p className="muted small">
+        {review.explanation}
+        {review.reviewed_at && ` Última revisión: ${review.reviewed_at}.`}
+        {review.stale && ' Hace bastante que no la miras.'}
+      </p>
+    </div>
   )
 }
 

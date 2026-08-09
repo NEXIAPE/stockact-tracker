@@ -356,7 +356,17 @@ def _score_fundamentals(data: TickerData) -> Tuple[float, str, List[Datum]]:
     if not notes:
         notes.append("Los fundamentales disponibles no dibujan una señal clara")
 
-    return score, ". ".join(notes) + ".", points
+    return score, _join_sentences(notes), points
+
+
+def _join_sentences(notes: List[str]) -> str:
+    """Une observaciones en un párrafo sin duplicar el punto final.
+
+    Algunas ya vienen terminadas en punto y otras no; concatenar a ciegas
+    producía «...no se le aplica tope por posición..».
+    """
+    limpio = [n.strip().rstrip(".") for n in notes if n and n.strip()]
+    return ". ".join(limpio) + "." if limpio else ""
 
 
 def _score_portfolio_fit(
@@ -464,7 +474,7 @@ def _score_portfolio_fit(
             score += 12.0
             notes.append("y tu cartera va corta de bonos frente a tu objetivo")
 
-    return score, ". ".join(notes) + ".", points
+    return score, _join_sentences(notes), points
 
 
 def _score_profile_fit(data: TickerData, profile: Profile) -> Tuple[float, str, List[Datum]]:

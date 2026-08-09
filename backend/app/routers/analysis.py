@@ -82,3 +82,48 @@ def proactive_ideas(limit: int = Query(default=4, ge=1, le=8)):
         ),
         "sizing_notice": ALTERNATIVES_NOTICE,
     }
+
+
+@router.get("/prices/{ticker}")
+def price_series(ticker: str, days: int = Query(default=365, ge=30, le=1825)):
+    """Serie de cierres para dibujar, con su media de 200 días.
+
+    Se devuelve submuestreada: un gráfico de unos cientos de puntos se ve igual
+    que uno de miles y pesa mucho menos. Los valores son cierres reales, nunca
+    interpolados, y viaja la cita de quién los sirvió.
+    """
+    from ..core import indicators as ind
+    from ..providers import prices as price_provider
+    from ..providers.http import FetchError
+
+    try:
+        serie = price_provider.fetch_daily(ticker)
+    except FetchError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "sin_precios",
+                "ticker": ticker.upper(),
+                "message": str(exc),
+            },
+        ) from exc
+
+    bars = serie.bars[-days:]
+    # Submuestreo tomando puntos reales, sin promediar: promediar inventaría
+    # cierres que nunca existieron.
+    paso = max(1, len(bars) // 400)
+    muestra = bars[::paso]
+    if muestra and muestra[-1] is not bars[-1]:
+        muestra.append(bars[-1])   # el último cierre siempre se conserva
+
+    sma200 = ind.sma(serie, 200)
+    return {
+        "ticker": serie.ticker,
+        "points": [{"d": b.day.isoformat(), "c": round(b.close, 4)} for b in muestra],
+        "sma200": round(sma200.value, 4) if hasattr(sma200, "value") else None,
+        "sma200_missing": None if hasattr(sma200, "value") else sma200.reason,
+        "last": {"day": serie.last.day.isoformat(), "close": round(serie.last.close, 4)},
+        "source_name": serie.source.name,
+        "source_url": serie.source.url,
+        "total_bars": len(serie.bars),
+    }

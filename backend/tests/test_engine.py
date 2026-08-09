@@ -407,3 +407,18 @@ class TestSellingCarriesItsOwnRisks:
         texto = " ".join(_selling_risks()).lower()
         assert "definitiv" in texto
         assert "contador" in texto or "tributari" in texto
+
+
+class TestSentenceAssembly:
+    def test_no_double_period_when_a_note_already_ends_with_one(self):
+        from app.core.recommendation import _join_sentences
+
+        assert _join_sentences(["Ya tienes algo de VOO", "Es un ETF amplio."]) == (
+            "Ya tienes algo de VOO. Es un ETF amplio."
+        )
+
+    def test_empty_notes_produce_empty_text(self):
+        from app.core.recommendation import _join_sentences
+
+        assert _join_sentences([]) == ""
+        assert _join_sentences(["", "  "]) == ""

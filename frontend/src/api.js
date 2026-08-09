@@ -46,6 +46,9 @@ export const api = {
   deleteHolding: (t) => del(`/portfolio/holdings/${encodeURIComponent(t)}`),
   setCash: (amount) => put('/portfolio/cash', { amount }),
   listTrades: () => get('/portfolio/trades'),
+  performance: (benchmark) => get(`/portfolio/performance${benchmark ? `?benchmark=${benchmark}` : ''}`),
+  theses: () => get('/portfolio/thesis'),
+  saveThesis: (ticker, body) => put(`/portfolio/holdings/${encodeURIComponent(ticker)}/thesis`, body),
   addTrade: (t) => post('/portfolio/trades', t),
   deleteTrade: (id) => del(`/portfolio/trades/${id}`),
 
@@ -58,6 +61,8 @@ export const api = {
   analyze: (ticker, assetType) =>
     get(`/analyze/${encodeURIComponent(ticker)}${assetType ? `?asset_type=${assetType}` : ''}`),
   ideas: (limit = 4) => get(`/ideas?limit=${limit}`),
+  priceSeries: (ticker, days = 365) =>
+    get(`/prices/${encodeURIComponent(ticker)}?days=${days}`),
 
   briefing: (includeIdeas = true) => get(`/briefing?include_ideas=${includeIdeas}`),
   alerts: (onlyUnread = false) => get(`/alerts?only_unread=${onlyUnread}`),

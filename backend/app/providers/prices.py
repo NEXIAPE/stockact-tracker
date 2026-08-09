@@ -24,22 +24,27 @@ from typing import Callable, Dict, List, Optional, Tuple
 from ..config import setting
 from .http import FetchError
 from .series import Bar, PriceSeries  # noqa: F401  (re-exportados por comodidad)
-from . import stooq, yahoo_chart
+from . import stooq, twelvedata, yahoo_chart
 
 Fetcher = Callable[..., PriceSeries]
 
 PROVIDERS: Dict[str, Tuple[str, Fetcher]] = {
     "stooq": ("Stooq", stooq.fetch_daily),
     "yahoo": ("Yahoo Finance", yahoo_chart.fetch_daily),
+    "twelvedata": ("Twelve Data", twelvedata.fetch_daily),
 }
 
-DEFAULT_ORDER = ["stooq", "yahoo"]
+# Twelve Data va el ÚLTIMO a propósito: tiene una cuota diaria limitada y sólo
+# tiene sentido gastarla cuando los proveedores sin clave han fallado.
+DEFAULT_ORDER = ["stooq", "yahoo", "twelvedata"]
 
 
 def order() -> List[str]:
     raw = setting("PRICE_PROVIDERS").strip()
     if not raw:
-        return list(DEFAULT_ORDER)
+        # Un proveedor con clave que no está configurado no debe ni intentarse:
+        # fallaría siempre y sólo añadiría ruido al diagnóstico.
+        return [p for p in DEFAULT_ORDER if p != "twelvedata" or twelvedata.enabled()]
     chosen = [p.strip().lower() for p in raw.split(",") if p.strip().lower() in PROVIDERS]
     return chosen or list(DEFAULT_ORDER)
 

@@ -11,6 +11,8 @@ const EMPTY_TRADE = { ticker: '', action: 'compra', shares: '', price: '', trade
 export default function Portfolio() {
   const navigate = useNavigate()
   const [data, setData] = useState(null)
+  const [perf, setPerf] = useState(null)
+  const [theses, setTheses] = useState({ theses: [], missing_warning: null, stale_warning: null })
   const [trades, setTrades] = useState([])
   const [holding, setHolding] = useState(EMPTY_HOLDING)
   const [trade, setTrade] = useState(EMPTY_TRADE)
@@ -20,14 +22,20 @@ export default function Portfolio() {
 
   const load = () => {
     setLoading(true)
-    Promise.all([api.getPortfolio(), api.listTrades()])
-      .then(([p, t]) => {
+    Promise.all([api.getPortfolio(), api.listTrades(), api.theses()])
+      .then(([p, t, th]) => {
         setData(p)
         setTrades(t.trades)
+        setTheses(th)
         setCash(String(p.cash ?? 0))
       })
       .catch((err) => (err.status === 409 ? navigate('/perfil') : setError(err)))
       .finally(() => setLoading(false))
+
+    // El rendimiento se pide aparte porque descarga el histórico del índice de
+    // referencia y tarda más; no debe retrasar el resto de la pantalla.
+    setPerf(null)
+    api.performance().then(setPerf).catch(() => setPerf(null))
   }
 
   useEffect(load, [])
@@ -82,6 +90,17 @@ export default function Portfolio() {
         </section>
       )}
 
+      <PerformanceCard perf={perf} />
+
+      {(theses.missing_warning || theses.stale_warning) && (
+        <section className="card">
+          <h2>Por qué compraste lo que tienes</h2>
+          <p className="muted small">{theses.why_it_matters}</p>
+          {theses.missing_warning && <Notice kind="warn">{theses.missing_warning}</Notice>}
+          {theses.stale_warning && <Notice kind="info">{theses.stale_warning}</Notice>}
+        </section>
+      )}
+
       <section className="card">
         <h2>Posiciones</h2>
         {!data.positions.length ? (
@@ -119,6 +138,24 @@ export default function Portfolio() {
               ))}
             </tbody>
           </table>
+        )}
+
+        {data.positions.length > 0 && (
+          <div className="theses">
+            <h3>Tu tesis de cada posición</h3>
+            <p className="muted small">
+              Por qué la compraste y qué te haría cambiar de idea. Es lo único que permite
+              opinar sobre vender sin apoyarse sólo en el precio.
+            </p>
+            {data.positions.map((p) => (
+              <ThesisEditor
+                key={p.ticker}
+                ticker={p.ticker}
+                current={theses.theses.find((t) => t.ticker === p.ticker)}
+                onSaved={load}
+              />
+            ))}
+          </div>
         )}
 
         <h3>Añadir o actualizar una posición</h3>
@@ -251,6 +288,125 @@ function Stat({ label, value }) {
     <div className="stat">
       <span className="stat__label">{label}</span>
       <span className="stat__value">{value}</span>
+    </div>
+  )
+}
+
+function PerformanceCard({ perf }) {
+  if (!perf) {
+    return (
+      <section className="card">
+        <h2>Cómo te va de verdad</h2>
+        <p className="muted">Calculando y descargando el histórico del índice de referencia…</p>
+      </section>
+    )
+  }
+
+  const tuyo = perf.gain_pct
+  const indice = perf.benchmark_gain_pct
+  const escala = Math.max(Math.abs(tuyo ?? 0), Math.abs(indice ?? 0), 1)
+
+  return (
+    <section className="card">
+      <h2>Cómo te va de verdad</h2>
+      <div className="perf">
+        <p className="perf__verdict">{perf.verdict}</p>
+
+        {tuyo !== null && indice !== null && (
+          <div className="perf__bars">
+            <div className="perf__bar">
+              <span>Tu cartera</span>
+              <span className="perf__track">
+                <span className="perf__fill" style={{ width: `${Math.min(100, (Math.abs(tuyo) / escala) * 100)}%` }} />
+              </span>
+              <span className={tuyo >= 0 ? 'pos' : 'neg'}><Pct value={tuyo} /></span>
+            </div>
+            <div className="perf__bar">
+              <span>Sólo {perf.benchmark_ticker}</span>
+              <span className="perf__track">
+                <span className="perf__fill perf__fill--bench"
+                      style={{ width: `${Math.min(100, (Math.abs(indice) / escala) * 100)}%` }} />
+              </span>
+              <span className={indice >= 0 ? 'pos' : 'neg'}><Pct value={indice} /></span>
+            </div>
+          </div>
+        )}
+
+        <DatumList items={perf.data} empty="" />
+
+        <p className="muted small">{perf.method}</p>
+        {perf.notes.length > 0 && (
+          <ul className="small gaps">
+            {perf.notes.map((n, i) => (
+              <li key={i}>{n}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function ThesisEditor({ ticker, current, onSaved }) {
+  const [open, setOpen] = useState(false)
+  const [form, setForm] = useState({
+    thesis: current?.text ?? '',
+    invalidation: current?.invalidation ?? '',
+  })
+  const [saving, setSaving] = useState(false)
+
+  const falta = !current?.exists
+
+  return (
+    <div className={falta ? 'thesis-edit thesis-edit--missing' : 'thesis-edit'}>
+      <div className="row wrap">
+        <strong>{ticker}</strong>
+        {falta ? (
+          <span className="tag tag--warn">sin tesis</span>
+        ) : (
+          <span className="muted small">
+            revisada {current.reviewed_at ?? 'nunca'}
+            {current.is_stale && ' · conviene releerla'}
+          </span>
+        )}
+        <button className="linkish" onClick={() => setOpen((v) => !v)}>
+          {open ? 'cancelar' : falta ? 'anotar por qué la compraste' : 'revisar'}
+        </button>
+      </div>
+
+      {!open && current?.exists && <p className="small thesis__text">{current.text}</p>}
+
+      {open && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            setSaving(true)
+            api
+              .saveThesis(ticker, { ...form, mark_reviewed: true })
+              .then(() => {
+                setOpen(false)
+                onSaved()
+              })
+              .finally(() => setSaving(false))
+          }}
+        >
+          <label className="field__label">¿Por qué compraste {ticker}?</label>
+          <textarea
+            rows={2} required value={form.thesis}
+            placeholder="p. ej. quiero exposición a todo el mercado sin elegir empresas"
+            onChange={(e) => setForm({ ...form, thesis: e.target.value })}
+          />
+          <label className="field__label">¿Qué te haría dejar de creerlo?</label>
+          <textarea
+            rows={2} value={form.invalidation}
+            placeholder="p. ej. si apareciera un fondo equivalente mucho más barato"
+            onChange={(e) => setForm({ ...form, invalidation: e.target.value })}
+          />
+          <button className="primary" type="submit" disabled={saving}>
+            {saving ? 'Guardando…' : 'Guardar y marcar como revisada'}
+          </button>
+        </form>
+      )}
     </div>
   )
 }

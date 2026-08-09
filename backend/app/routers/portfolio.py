@@ -11,6 +11,7 @@ from ..core.universe import guess_asset_type
 from ..db import get_conn, now_iso
 from ..deps import load_profile
 from ..core.profile import derive_strategy
+from ..core import performance as perf_mod
 from ..core import thesis as thesis_mod
 from ..schemas import CashIn, HoldingIn, ThesisIn, TradeIn
 
@@ -77,6 +78,15 @@ def upsert_holding(payload: HoldingIn):
             "para opinar sobre vender es el precio, que es la peor señal posible."
         ) if not thesis_text.strip() else "",
     }
+
+
+@router.get("/performance")
+def performance(benchmark: str = perf_mod.DEFAULT_BENCHMARK):
+    """Cómo te va de verdad, comparado con haber comprado un fondo amplio."""
+    with get_conn() as conn:
+        state = load_portfolio(conn)
+        resultado = perf_mod.compute(conn, state, benchmark=benchmark)
+    return perf_mod.to_dict(resultado)
 
 
 @router.get("/thesis")

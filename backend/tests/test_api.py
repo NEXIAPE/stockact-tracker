@@ -476,3 +476,71 @@ class TestThesis:
         client.post("/api/profile", json=PROFILE)
         client.put("/api/portfolio/cash", json={"amount": 1000})
         assert client.get("/api/analyze/VTI").json()["thesis_review"] is None
+
+
+class TestPerformance:
+    """La pregunta incomoda: te habria ido mejor comprando el indice y ya."""
+
+    def _setup(self, client, trades=()):
+        client.post("/api/profile", json=PROFILE)
+        client.put("/api/portfolio/holdings",
+                   json={"ticker": "VOO", "shares": 10, "avg_cost": 80, "asset_type": "etf"})
+        client.put("/api/portfolio/cash", json={"amount": 500})
+        for t in trades:
+            client.post("/api/portfolio/trades", json=t)
+
+    def test_without_trades_it_says_it_cannot_compare(self, client):
+        self._setup(client)
+        body = client.get("/api/portfolio/performance").json()
+        assert body["difference_pct"] is None
+        assert "no puedo comparar" in " ".join(body["notes"]).lower()
+
+    def test_it_does_not_invent_a_comparison_from_average_cost(self, client):
+        """Sin fechas la comparacion seria falsa; mejor decirlo."""
+        self._setup(client)
+        body = client.get("/api/portfolio/performance").json()
+        assert body["benchmark_value"] is None
+        assert body["contributed"] is None
+
+    def test_with_trades_it_compares_against_the_benchmark(self, client):
+        hace_dos_anos = (TODAY - timedelta(days=730)).isoformat()
+        self._setup(client, trades=[
+            {"ticker": "VOO", "action": "compra", "shares": 10, "price": 80,
+             "traded_on": hace_dos_anos},
+        ])
+        body = client.get("/api/portfolio/performance").json()
+        assert body["contributed"] == pytest.approx(800.0)
+        assert body["benchmark_value"] is not None
+        assert body["difference_pct"] is not None
+
+    def test_a_sale_counts_as_money_taken_out(self, client):
+        dia = (TODAY - timedelta(days=400)).isoformat()
+        self._setup(client, trades=[
+            {"ticker": "VOO", "action": "compra", "shares": 10, "price": 100, "traded_on": dia},
+            {"ticker": "VOO", "action": "venta", "shares": 4, "price": 100, "traded_on": dia},
+        ])
+        body = client.get("/api/portfolio/performance").json()
+        assert body["contributed"] == pytest.approx(600.0)
+
+    def test_a_short_history_refuses_to_draw_conclusions(self, client):
+        ayer = (TODAY - timedelta(days=1)).isoformat()
+        self._setup(client, trades=[
+            {"ticker": "VOO", "action": "compra", "shares": 1, "price": 100, "traded_on": ayer},
+        ])
+        veredicto = client.get("/api/portfolio/performance").json()["verdict"].lower()
+        assert "poco tiempo" in veredicto or "suerte" in veredicto
+
+    def test_the_method_is_explained(self, client):
+        self._setup(client)
+        assert "mismo día" in client.get("/api/portfolio/performance").json()["method"]
+
+    def test_every_figure_is_cited(self, client):
+        dia = (TODAY - timedelta(days=400)).isoformat()
+        self._setup(client, trades=[
+            {"ticker": "VOO", "action": "compra", "shares": 10, "price": 100, "traded_on": dia},
+        ])
+        for d in client.get("/api/portfolio/performance").json()["data"]:
+            if d["kind"] == "datapoint":
+                assert d["source_name"] and d["as_of"]
+            else:
+                assert d["reason"]

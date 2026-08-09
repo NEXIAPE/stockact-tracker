@@ -9,6 +9,7 @@ from ..config import CONTACT_EMAIL, DB_PATH, FINNHUB_ENABLED
 from ..core.guards import NOT_ADVICE_NOTICE, READ_ONLY_NOTICE
 from ..db import export_all, get_conn, wipe_all
 from ..providers import stockact
+from ..providers.twelvedata import enabled as _twelvedata_enabled
 from ..providers.http import client
 
 router = APIRouter(prefix="/api/data", tags=["tus datos"])
@@ -79,6 +80,17 @@ def sources():
                 "cost": "Gratis, sin clave",
                 "limits": "Cobertura desigual. Los titulares son interpretación, no hechos.",
                 "enabled": True,
+            },
+            {
+                "name": "Twelve Data",
+                "provides": "Precios de cierre diario. Tercer respaldo, por si fallan los otros dos.",
+                "cost": "Plan gratuito con clave (los límites los fija Twelve Data)",
+                "limits": (
+                    "Requiere TWELVEDATA_API_KEY. Va el último en el orden a propósito: "
+                    "su cuota diaria sólo debe gastarse si los proveedores sin clave fallan. "
+                    "Hoy no resuelve ningún problema si Yahoo o Stooq te funcionan."
+                ),
+                "enabled": _twelvedata_enabled(),
             },
             {
                 "name": "Finnhub",
