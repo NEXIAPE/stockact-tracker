@@ -84,6 +84,20 @@ Opción elegida: **gratuitas sin clave + una clave gratuita opcional**.
 
 ## Puesta en marcha
 
+### Windows (PowerShell) — dos comandos
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\instalar_windows.ps1   # una sola vez
+powershell -ExecutionPolicy Bypass -File scripts\arrancar_windows.ps1   # cada vez que la uses
+```
+
+El instalador comprueba Python y Node, crea el entorno, instala todo, te pide tu
+email (y la clave de Finnhub si la quieres) y termina ejecutando el diagnóstico
+de fuentes. El de arranque abre el motor y la interfaz en dos ventanas y te lleva
+al navegador.
+
+### macOS y Linux — a mano
+
 ```bash
 # Backend
 python3 -m venv .venv

@@ -35,3 +35,6 @@ dist/
 
 # Briefings generados
 briefing_*.txt
+
+# Configuracion local de Windows (email, clave de Finnhub)
+config.local.ps1
