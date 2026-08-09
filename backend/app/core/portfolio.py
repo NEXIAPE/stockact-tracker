@@ -280,16 +280,31 @@ def load_portfolio(conn, today: Optional[date] = None) -> PortfolioState:
 # ---------------------------------------------------------------------------
 # Chequeos de concentración y desvío frente a la estrategia
 # ---------------------------------------------------------------------------
+# Como se llama cada desvio en pantalla. Los identificadores internos
+# ("acciones_individuales") no son texto para leer.
+DEVIATION_LABELS = {
+    "concentracion": "Concentración",
+    "acciones_individuales": "Acciones sueltas",
+    "sector": "Sector",
+    "cash": "Efectivo",
+    "asignacion": "Reparto acciones/bonos",
+}
+
+
 @dataclass
 class Deviation:
     kind: str          # "concentracion" | "sector" | "cash" | "asignacion" | "acciones_individuales"
     severity: str      # "informativo" | "atencion"
     message: str
     numbers: List[DataPoint] = field(default_factory=list)
+    # Lo rellena el briefing: si este desvio ya se muestra arriba como alerta,
+    # repetirlo debajo es ruido.
+    already_alerted: bool = False
 
     def to_dict(self, today: date) -> dict:
         return {
             "kind": self.kind,
+            "label": DEVIATION_LABELS.get(self.kind, self.kind),
             "severity": self.severity,
             "message": self.message,
             "numbers": [n.to_dict(today) for n in self.numbers],
@@ -455,6 +470,10 @@ def portfolio_dict(
         "cash_pct": round(state.cash_pct(), 2) if state.cash_pct() is not None else None,
         "positions": [p.to_dict(state.total_value, today) for p in state.positions],
         "sector_weights": {k: round(v, 2) for k, v in state.sector_weights().items()},
+        "sector_weights_note": (
+            "Los porcentajes son sobre el total de tu cartera, efectivo incluido, así que "
+            "no suman cien: lo que falta hasta cien es el efectivo sin invertir."
+        ),
         "stocks_vs_bonds": {
             k: (round(v, 2) if v is not None else None)
             for k, v in state.stocks_vs_bonds().items()

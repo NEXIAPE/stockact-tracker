@@ -82,7 +82,9 @@ export default function Portfolio() {
           <h2>Cómo te va frente a tu estrategia</h2>
           {data.deviations.map((d, i) => (
             <div key={i} className="deviation">
-              <span className={`tag tag--${d.severity === 'atencion' ? 'warn' : 'sm'}`}>{d.kind}</span>
+              <span className={`tag tag--${d.severity === 'atencion' ? 'warn' : 'sm'}`}>
+                {d.label ?? d.kind}
+              </span>
               <p>{d.message}</p>
               <DatumList items={d.numbers} empty="" />
             </div>

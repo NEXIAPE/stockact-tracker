@@ -142,6 +142,14 @@ def build(
     unread = list_alerts(conn, only_unread=True, limit=20)
     deviations = check_deviations(state, profile, strategy)
 
+    # Los desvios de cartera generan alertas, asi que sin esto la misma
+    # informacion aparecia DOS VECES seguidas en la pantalla, con las mismas
+    # cifras: primero como alerta y justo debajo como desvio. Se marca cual ya
+    # esta arriba para que el frontend no lo repita.
+    cuerpos_alertados = " ".join(a["body"] for a in unread)
+    for d in deviations:
+        d.already_alerted = d.message[:60] in cuerpos_alertados
+
     ideas: List[dict] = []
     idea_problems: List[str] = []
     if include_ideas:
@@ -190,7 +198,10 @@ def build(
         "headline": _headline(state, len(unread), len(deviations)),
         "portfolio": portfolio_dict(state, profile, strategy),
         "unread_alerts": unread,
-        "deviations": [d.to_dict(today) for d in deviations],
+        "deviations": [
+            {**d.to_dict(today), "already_alerted": getattr(d, "already_alerted", False)}
+            for d in deviations
+        ],
         "ideas": ideas,
         "ideas_sizing_notice": ALTERNATIVES_NOTICE,
         "thesis_notes": thesis_notes,

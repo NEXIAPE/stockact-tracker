@@ -530,6 +530,27 @@ class TestPerformance:
         veredicto = client.get("/api/portfolio/performance").json()["verdict"].lower()
         assert "poco tiempo" in veredicto or "suerte" in veredicto
 
+    def test_an_invalid_comparison_hides_its_ingredients_too(self, client):
+        """Bloquear el porcentaje pero mostrar aportado y valor actual uno al
+        lado del otro deja que cualquiera haga la division y saque justo la
+        cifra enganosa que se pretendia evitar."""
+        dia = (TODAY - timedelta(days=400)).isoformat()
+        self._setup(client, trades=[
+            {"ticker": "VOO", "action": "compra", "shares": 10, "price": 100, "traded_on": dia},
+        ])
+        # VOO esta en la bitacora, pero se anade otra posicion que no lo esta.
+        client.put("/api/portfolio/holdings",
+                   json={"ticker": "AAPL", "shares": 5, "avg_cost": 100, "asset_type": "accion"})
+
+        body = client.get("/api/portfolio/performance").json()
+        assert body["comparable"] is False
+        assert body["contributed"] is None, "No debe mostrarse lo aportado."
+        assert body["current_value"] is None, "Ni el valor actual: juntos permiten la division."
+        assert body["benchmark_value"] is None
+        etiquetas = [d["label"] for d in body["data"]]
+        assert all("aportado" not in e.lower() for e in etiquetas)
+        assert any(d["kind"] == "missing" and "AAPL" in d["reason"] for d in body["data"])
+
     def test_the_method_is_explained(self, client):
         self._setup(client)
         assert "mismo día" in client.get("/api/portfolio/performance").json()["method"]

@@ -101,16 +101,23 @@ export default function Briefing() {
         <Link to="/alertas">Ver todas las alertas →</Link>
       </section>
 
-      {data.deviations.length > 0 && (
+      {/* Sólo los desvíos que NO están ya arriba como alerta: repetir la misma
+          información con las mismas cifras dos veces seguidas duplicaba el
+          largo de la página sin añadir nada. */}
+      {data.deviations.some((d) => !d.already_alerted) && (
         <section className="card">
-          <h2>Tu cartera frente a tu estrategia</h2>
-          {data.deviations.map((d, i) => (
-            <div key={i} className="deviation">
-              <span className={`tag tag--${d.severity === 'atencion' ? 'warn' : 'sm'}`}>{d.kind}</span>
-              <p>{d.message}</p>
-              <DatumList items={d.numbers} empty="" />
-            </div>
-          ))}
+          <h2>Otros detalles de tu cartera</h2>
+          {data.deviations
+            .filter((d) => !d.already_alerted)
+            .map((d, i) => (
+              <div key={i} className="deviation">
+                <span className={`tag tag--${d.severity === 'atencion' ? 'warn' : 'sm'}`}>
+                  {d.label ?? d.kind}
+                </span>
+                <p>{d.message}</p>
+                <DatumList items={d.numbers} empty="" />
+              </div>
+            ))}
         </section>
       )}
 

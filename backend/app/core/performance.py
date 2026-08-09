@@ -258,11 +258,55 @@ def to_dict(perf: Performance, today: Optional[date] = None) -> dict:
     src = user_source()
     datos: List[Datum] = []
 
-    if perf.trades:
-        datos.append(DataPoint(
-            label="Dinero neto que has aportado", value=perf.contributed, unit="USD",
-            as_of=today, source=src,
-        ))
+    # SI LA COMPARACIÓN NO ES VÁLIDA, TAMPOCO SE ENSEÑAN SUS INGREDIENTES.
+    #
+    # Antes se bloqueaban los porcentajes pero se mostraban igual «aportado» y
+    # «valor actual» uno al lado del otro. Cualquiera divide esas dos cifras y
+    # saca exactamente el resultado engañoso que el bloqueo pretendía evitar
+    # (en pruebas: un +114 % completamente falso). Ocultar la conclusión y
+    # servir los ingredientes no es honestidad, es disimulo.
+    if not perf.comparable:
+        if perf.uncovered:
+            datos.append(Missing(
+                label="Comparación con un fondo amplio",
+                reason=(
+                    "Faltan en tu bitácora las operaciones de "
+                    + ", ".join(perf.uncovered)
+                    + ". Con la bitácora incompleta cualquier cifra saldría a tu favor sin "
+                    "motivo, así que no se muestra ninguna."
+                ),
+                tried="Tu bitácora de operaciones",
+            ))
+        else:
+            datos.append(Missing(
+                label="Comparación con un fondo amplio",
+                reason=(
+                    "No has registrado operaciones. La comparación necesita saber cuánto "
+                    "pusiste y cuándo."
+                ),
+                tried="Tu bitácora de operaciones",
+            ))
+        return {
+            "comparable": False,
+            "uncovered": perf.uncovered,
+            "contributed": None, "current_value": None, "gain": None, "gain_pct": None,
+            "benchmark_ticker": perf.benchmark_ticker, "benchmark_value": None,
+            "benchmark_gain_pct": None, "difference_pct": None,
+            "trades": perf.trades,
+            "first_trade": perf.first_trade.isoformat() if perf.first_trade else None,
+            "verdict": verdict(perf),
+            "data": [d.to_dict(today) for d in datos],
+            "notes": perf.notes,
+            "method": (
+                "La comparación reconstruye qué habría pasado si cada aporte que registraste "
+                "hubiera ido, ese mismo día, a un fondo amplio de referencia."
+            ),
+        }
+
+    datos.append(DataPoint(
+        label="Dinero neto que has aportado", value=perf.contributed, unit="USD",
+        as_of=today, source=src,
+    ))
     if perf.current_value is not None:
         datos.append(DataPoint(
             label="Valor actual de tu cartera", value=perf.current_value, unit="USD",
@@ -287,7 +331,7 @@ def to_dict(perf: Performance, today: Optional[date] = None) -> dict:
     else:
         datos.append(Missing(
             label=f"Lo mismo, puesto en {perf.benchmark_ticker}",
-            reason=perf.benchmark_error or "No hay operaciones registradas para comparar.",
+            reason=perf.benchmark_error or "No se pudo obtener el histórico del índice.",
         ))
 
     return {
