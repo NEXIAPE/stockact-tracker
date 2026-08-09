@@ -62,6 +62,45 @@ def setting(name: str, default: str = "") -> str:
         return from_env
     return _FILE_VALUES.get(name, default)
 
+
+def origin(name: str) -> str:
+    """De DÓNDE viene un ajuste: «entorno», «.env» o «por defecto».
+
+    Existe porque perseguir un ajuste que no se aplica es de las cosas más
+    frustrantes que hay, y adivinar de dónde sale un valor no es forma de
+    depurar. El diagnóstico lo muestra para que se vea de un vistazo si el
+    archivo que estás editando es el que la herramienta realmente lee.
+    """
+    from_env = os.getenv(name)
+    if from_env is not None and from_env.strip() != "":
+        return "variable de entorno"
+    if name in _FILE_VALUES:
+        return f"{ENV_FILE.name}"
+    return "por defecto"
+
+
+# Ajustes que se muestran en el diagnóstico. El valor de la clave de Finnhub
+# NUNCA se imprime: sólo si está puesta o no.
+REPORTED_SETTINGS = [
+    ("INVEST_CONTACT", False),
+    ("PRICE_PROVIDERS", False),
+    ("FINNHUB_API_KEY", True),   # True = es un secreto, se oculta
+    ("INVEST_DB", False),
+]
+
+
+def config_report() -> list:
+    """Cada ajuste con su valor (o su ausencia) y su procedencia."""
+    out = []
+    for name, secret in REPORTED_SETTINGS:
+        raw = setting(name)
+        if secret:
+            shown = f"puesta ({len(raw)} caracteres)" if raw else "(sin poner)"
+        else:
+            shown = raw or "(sin poner)"
+        out.append({"name": name, "value": shown, "origin": origin(name)})
+    return out
+
 # Base de datos de la herramienta personal (perfil, cartera, watchlist, alertas).
 DB_PATH = Path(setting("INVEST_DB") or (REPO_ROOT / "personal_invest.db"))
 

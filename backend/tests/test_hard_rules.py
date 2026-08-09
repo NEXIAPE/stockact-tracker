@@ -339,3 +339,34 @@ class TestConfigFile:
         gitignore = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
         assert "\n.env\n" in gitignore, "El .env con datos personales debe estar ignorado."
         assert (REPO_ROOT / ".env.example").exists(), "Debe haber un ejemplo versionado."
+
+    def test_report_says_where_each_setting_comes_from(self, tmp_path, monkeypatch):
+        """Perseguir un ajuste que no se aplica es frustrante; la herramienta
+        debe decir de que archivo sale cada valor."""
+        env = tmp_path / ".env"
+        env.write_text("PRICE_PROVIDERS=yahoo\n", encoding="utf-8")
+        monkeypatch.delenv("INVEST_CONTACT", raising=False)
+        monkeypatch.delenv("PRICE_PROVIDERS", raising=False)
+        cfg = self._reload(monkeypatch, env)
+
+        por_nombre = {i["name"]: i for i in cfg.config_report()}
+        assert por_nombre["PRICE_PROVIDERS"]["origin"] == ".env"
+        assert por_nombre["INVEST_CONTACT"]["origin"] == "por defecto"
+
+        monkeypatch.setenv("INVEST_CONTACT", "yo@ejemplo.pe")
+        cfg = self._reload(monkeypatch, env)
+        por_nombre = {i["name"]: i for i in cfg.config_report()}
+        assert por_nombre["INVEST_CONTACT"]["origin"] == "variable de entorno"
+
+    def test_the_finnhub_key_value_is_never_printed(self, tmp_path, monkeypatch):
+        """Un secreto no se muestra en un informe que la gente pega en chats."""
+        env = tmp_path / ".env"
+        env.write_text("FINNHUB_API_KEY=d9s9pc1r01qopv46bk40\n", encoding="utf-8")
+        monkeypatch.delenv("FINNHUB_API_KEY", raising=False)
+        cfg = self._reload(monkeypatch, env)
+
+        entrada = next(i for i in cfg.config_report() if i["name"] == "FINNHUB_API_KEY")
+        assert "d9s9pc1r01qopv46bk40" not in entrada["value"]
+        assert "puesta" in entrada["value"]
+        texto_completo = " ".join(f"{i['name']}{i['value']}{i['origin']}" for i in cfg.config_report())
+        assert "d9s9pc1r01qopv46bk40" not in texto_completo

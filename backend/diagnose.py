@@ -28,7 +28,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from app.config import CONTACT_EMAIL, ENV_FILE, FINNHUB_ENABLED, USER_AGENT  # noqa: E402
+from app.config import (  # noqa: E402
+    CONTACT_EMAIL, ENV_FILE, FINNHUB_ENABLED, USER_AGENT, config_report,
+)
 from app.providers import edgar, finnhub, news_rss, prices, stockact  # noqa: E402
 from app.providers.http import FetchError  # noqa: E402
 
@@ -71,6 +73,24 @@ def header(text: str) -> None:
     print()
     print(text)
     print("-" * len(text))
+
+
+def check_config(rep: Report) -> None:
+    """Qué configuración está viendo la herramienta, y de dónde la saca."""
+    header("Configuración que está leyendo la herramienta")
+    print(f"         Archivo esperado: {ENV_FILE}")
+    print(f"         {'existe' if ENV_FILE.exists() else 'NO EXISTE (se usan los valores por defecto)'}")
+    print()
+    for item in config_report():
+        print(f"         {item['name']:<18} {item['value']:<42} <- {item['origin']}")
+
+    legacy = ENV_FILE.parent / "config.local.ps1"
+    if legacy.exists():
+        rep.warn(
+            "Existe un config.local.ps1, que YA NO SE USA.",
+            "Si editaste ese archivo, tus cambios no se estan aplicando. Pasa sus "
+            f"valores al archivo .env y borra el antiguo:\n    {legacy}",
+        )
 
 
 def check_prices(rep: Report, ticker: str) -> None:
@@ -298,6 +318,7 @@ def main() -> int:
     print("es deliberadamente lento y cortés para no abusar de servicios gratuitos.")
 
     rep = Report()
+    check_config(rep)
     check_prices(rep, args.etf)
     check_prices(rep, args.ticker)
     check_edgar(rep, args.ticker)
