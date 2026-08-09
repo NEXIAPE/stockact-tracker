@@ -114,7 +114,11 @@ cd frontend && npm install && npm run dev
 Primer uso: entra en **Perfil**, completa el onboarding, registra tu cartera y
 tu efectivo, y ya puedes analizar símbolos y recibir el briefing.
 
-### Variables de entorno
+### Configuración: el archivo `.env`
+
+Copia `.env.example` como `.env` en la raíz y edítalo. **La aplicación lo lee
+siempre**, la lances como la lances: interfaz, diagnóstico, briefing diario o
+cron. Una variable de entorno real tiene prioridad sobre el archivo.
 
 | Variable | Para qué | Por defecto |
 |---|---|---|
@@ -132,12 +136,11 @@ hay **dos proveedores** y se usa el primero que responda; la cita siempre nombra
 al que realmente sirvió el dato. Stooq no es accesible desde todas las redes.
 Si el diagnóstico te dice que uno falla y el otro no, fija el orden:
 
-```powershell
-$env:PRICE_PROVIDERS = "yahoo,stooq"     # deja esta linea en config.local.ps1
 ```
-```bash
-export PRICE_PROVIDERS="yahoo,stooq"     # macOS y Linux
+PRICE_PROVIDERS=yahoo,stooq
 ```
+
+(esa línea va en tu `.env`, sin comillas ni `export`)
 
 ### Comprobar que las fuentes responden de verdad
 

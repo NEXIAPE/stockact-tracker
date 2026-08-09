@@ -259,3 +259,83 @@ class TestHonestyAboutData:
         assert body["missing_on_purpose"], "Debe declarar explícitamente qué NO tiene."
         names = {m["what"] for m in body["missing_on_purpose"]}
         assert any("entimiento" in n for n in names)
+
+
+class TestConfigFile:
+    """La configuracion debe aplicar sin importar como se lance la herramienta.
+
+    Regresion de un fallo real: el email vivia solo en una variable de entorno
+    exportada por el script de arranque, asi que ejecutar el diagnostico desde
+    otra terminal lo perdia y la herramienta se identificaba ante la SEC con el
+    email de ejemplo sin avisar de nada.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _restore_config(self, monkeypatch):
+        """Recargar el modulo de configuracion es global: si no se deshace, el
+        .env temporal de un test contamina a todos los demas."""
+        yield
+        import importlib
+
+        from app import config as config_mod
+        from app.providers import prices
+
+        monkeypatch.delenv("INVEST_ENV_FILE", raising=False)
+        importlib.reload(config_mod)
+        importlib.reload(prices)
+
+    def _reload(self, monkeypatch, env_path):
+        import importlib
+
+        from app import config as config_mod
+
+        monkeypatch.setenv("INVEST_ENV_FILE", str(env_path))
+        return importlib.reload(config_mod)
+
+    def test_reads_values_from_the_env_file(self, tmp_path, monkeypatch):
+        env = tmp_path / ".env"
+        env.write_text("INVEST_CONTACT=yo@ejemplo.pe\n", encoding="utf-8")
+        monkeypatch.delenv("INVEST_CONTACT", raising=False)
+        cfg = self._reload(monkeypatch, env)
+        assert cfg.CONTACT_EMAIL == "yo@ejemplo.pe"
+        assert "yo@ejemplo.pe" in cfg.USER_AGENT
+
+    def test_real_environment_variable_wins(self, tmp_path, monkeypatch):
+        env = tmp_path / ".env"
+        env.write_text("INVEST_CONTACT=archivo@ejemplo.pe\n", encoding="utf-8")
+        monkeypatch.setenv("INVEST_CONTACT", "entorno@ejemplo.pe")
+        cfg = self._reload(monkeypatch, env)
+        assert cfg.CONTACT_EMAIL == "entorno@ejemplo.pe"
+
+    def test_comments_blank_lines_and_quotes_are_handled(self, tmp_path, monkeypatch):
+        env = tmp_path / ".env"
+        env.write_text(
+            '# un comentario\n\nFINNHUB_API_KEY="con-comillas"\n  \nsin_igual\n',
+            encoding="utf-8",
+        )
+        monkeypatch.delenv("FINNHUB_API_KEY", raising=False)
+        cfg = self._reload(monkeypatch, env)
+        assert cfg.FINNHUB_API_KEY == "con-comillas"
+        assert cfg.FINNHUB_ENABLED is True
+
+    def test_a_missing_file_does_not_break_startup(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("INVEST_CONTACT", raising=False)
+        cfg = self._reload(monkeypatch, tmp_path / "no-existe.env")
+        assert cfg.CONTACT_EMAIL.endswith("example.com")
+
+    def test_price_provider_order_comes_from_the_file(self, tmp_path, monkeypatch):
+        import importlib
+
+        env = tmp_path / ".env"
+        env.write_text("PRICE_PROVIDERS=yahoo\n", encoding="utf-8")
+        monkeypatch.delenv("PRICE_PROVIDERS", raising=False)
+        self._reload(monkeypatch, env)
+        from app.providers import prices
+
+        importlib.reload(prices)
+        assert prices.order() == ["yahoo"]
+
+    def test_the_env_file_is_never_committed(self):
+        gitignore = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
+        assert "\n.env\n" in gitignore, "El .env con datos personales debe estar ignorado."
+        assert (REPO_ROOT / ".env.example").exists(), "Debe haber un ejemplo versionado."

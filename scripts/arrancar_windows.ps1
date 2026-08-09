@@ -16,7 +16,7 @@ $RepoDir = Split-Path -Parent $PSScriptRoot
 Set-Location $RepoDir
 
 $VenvPython = Join-Path $RepoDir ".venv\Scripts\python.exe"
-$ConfigFile = Join-Path $RepoDir "config.local.ps1"
+$EnvFile = Join-Path $RepoDir ".env"
 
 if (-not (Test-Path $VenvPython)) {
     Write-Host "No encuentro el entorno virtual." -ForegroundColor Red
@@ -25,11 +25,12 @@ if (-not (Test-Path $VenvPython)) {
     exit 1
 }
 
-if (Test-Path $ConfigFile) { . $ConfigFile }
-
-if (-not $env:INVEST_CONTACT -or $env:INVEST_CONTACT -like "*example.com") {
-    Write-Host "AVISO: no has puesto tu email de contacto en config.local.ps1." -ForegroundColor Yellow
+# La configuracion la lee la propia aplicacion desde .env; aqui solo se avisa
+# si falta, para no arrancar en silencio identificandose como el ejemplo.
+if (-not (Test-Path $EnvFile)) {
+    Write-Host "AVISO: no existe el archivo .env con tu email de contacto." -ForegroundColor Yellow
     Write-Host "       La SEC puede rechazar las consultas de fundamentales." -ForegroundColor Yellow
+    Write-Host "       Copia .env.example como .env y pon tu email." -ForegroundColor Yellow
     Write-Host ""
 }
 
@@ -39,7 +40,6 @@ Write-Host "Arrancando el motor en http://127.0.0.1:8000 ..." -ForegroundColor C
 
 $comandoBackend = @"
 Set-Location '$RepoDir'
-if (Test-Path '$ConfigFile') { . '$ConfigFile' }
 Write-Host 'MOTOR DE LA HERRAMIENTA - no cierres esta ventana mientras la uses' -ForegroundColor Cyan
 & '$VenvPython' -m uvicorn app.main:app --app-dir backend --reload
 "@

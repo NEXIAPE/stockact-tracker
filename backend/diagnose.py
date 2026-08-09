@@ -28,7 +28,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from app.config import CONTACT_EMAIL, FINNHUB_ENABLED, USER_AGENT  # noqa: E402
+from app.config import CONTACT_EMAIL, ENV_FILE, FINNHUB_ENABLED, USER_AGENT  # noqa: E402
 from app.providers import edgar, finnhub, news_rss, prices, stockact  # noqa: E402
 from app.providers.http import FetchError  # noqa: E402
 
@@ -90,7 +90,8 @@ def check_prices(rep: Report, ticker: str) -> None:
             algun_ok = True
             age = (__import__("datetime").date.today() - r["last_day"]).days
             rep.ok(
-                f"{r['name']}: {r['bars']} cierres, último el {r['last_day']} a {r['last_close']} USD",
+                f"{r['name']}: {r['bars']} cierres, último el {r['last_day']} "
+                f"a {r['last_close']:,.2f} USD",
                 f"Se citará como: {r['source']}",
             )
             if r["bars"] < 250:
@@ -115,8 +116,10 @@ def check_prices(rep: Report, ticker: str) -> None:
     else:
         usable = [r["key"] for r in resultados if r["ok"]]
         if len(usable) < len(resultados):
-            print(f"         Basta con uno: se usará «{usable[0]}». Sugerencia para tu red:")
-            print(f"         PRICE_PROVIDERS={','.join(usable)}")
+            print(f"         Basta con uno: se usará «{usable[0]}».")
+            print( "         Para no perder segundos intentando el que falla, pon esta línea")
+            print(f"         en el archivo .env de la raíz del repositorio:")
+            print(f"             PRICE_PROVIDERS={','.join(usable)}")
 
 
 def check_edgar(rep: Report, ticker: str) -> None:
@@ -124,8 +127,10 @@ def check_edgar(rep: Report, ticker: str) -> None:
     if CONTACT_EMAIL.endswith("example.com"):
         rep.warn(
             "No has puesto tu email de contacto.",
-            "La SEC exige un User-Agent identificable y puede bloquearte. "
-            'Arréglalo con: export INVEST_CONTACT="tu-email@ejemplo.com"',
+            "La SEC exige un User-Agent identificable y puede bloquearte.\n"
+            f"Arréglalo poniendo esta línea en el archivo .env de la raíz del repositorio:\n"
+            f"    INVEST_CONTACT=tu-email@ejemplo.com\n"
+            f"(archivo esperado: {ENV_FILE})",
         )
     print(f"         User-Agent actual: {USER_AGENT}")
 
@@ -158,8 +163,11 @@ def check_edgar(rep: Report, ticker: str) -> None:
 
     lines = []
     for key, fact in sorted(fundamentals.latest.items()):
+        # Las magnitudes grandes (ingresos, activos) no necesitan decimales; las
+        # pequeñas (beneficio por acción) los necesitan todos.
+        decimales = 0 if abs(fact.value) >= 1000 else 2
         lines.append(
-            f"{key:<16} {fact.value:>20,.0f} {fact.unit:<10} "
+            f"{key:<16} {fact.value:>20,.{decimales}f} {fact.unit:<10} "
             f"FY{fact.fiscal_year} cierre {fact.period_end} ({fact.form})"
         )
     rep.ok(f"{len(fundamentals.latest)} conceptos leídos:", "\n".join(lines))

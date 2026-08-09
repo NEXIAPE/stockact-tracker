@@ -38,3 +38,6 @@ briefing_*.txt
 
 # Configuracion local de Windows (email, clave de Finnhub)
 config.local.ps1
+
+# Configuracion local con tus datos (el ejemplo si se versiona)
+.env

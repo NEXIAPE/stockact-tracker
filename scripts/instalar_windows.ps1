@@ -120,10 +120,10 @@ Bien "Dependencias instaladas."
 # --- 4. Tu email de contacto -----------------------------------------------
 Titulo "Paso 4 de 5 - Tu email de contacto"
 
-$ConfigFile = Join-Path $RepoDir "config.local.ps1"
+$EnvFile = Join-Path $RepoDir ".env"
 
-if (Test-Path $ConfigFile) {
-    Bien "Ya tenias configuracion guardada en config.local.ps1"
+if (Test-Path $EnvFile) {
+    Bien "Ya tenias configuracion guardada en .env"
 } else {
     Write-Host "  La SEC exige identificarse con un email para consultar sus datos."
     Write-Host "  Si no lo pones, puede bloquearte. No se envia a ningun otro sitio:"
@@ -140,19 +140,18 @@ if (Test-Path $ConfigFile) {
     Write-Host "  Se saca gratis en https://finnhub.io/. Deja en blanco para omitirla."
     $finnhub = Read-Host "  Clave de Finnhub"
 
-    $contenido = @"
-# Configuracion local. NO se sube al repositorio (esta en .gitignore).
-# Editalo cuando quieras cambiar tu email o anadir la clave de Finnhub.
-`$env:INVEST_CONTACT = "$email"
-"@
+    $lineas = @(
+        "# Configuracion de la herramienta. NO se sube al repositorio.",
+        "# La lee la aplicacion siempre, la lances como la lances.",
+        "INVEST_CONTACT=$email"
+    )
     if (-not [string]::IsNullOrWhiteSpace($finnhub)) {
-        $contenido += "`n`$env:FINNHUB_API_KEY = `"$finnhub`"`n"
+        $lineas += "FINNHUB_API_KEY=$finnhub"
     }
-    Set-Content -Path $ConfigFile -Value $contenido -Encoding UTF8
-    Bien "Guardado en config.local.ps1"
+    Set-Content -Path $EnvFile -Value $lineas -Encoding UTF8
+    Bien "Guardado en .env"
 }
 
-. $ConfigFile
 
 
 # --- 5. Diagnostico de fuentes ---------------------------------------------

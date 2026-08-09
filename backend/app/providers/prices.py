@@ -19,9 +19,9 @@ entorno ``PRICE_PROVIDERS`` (lista separada por comas), por ejemplo:
 
 from __future__ import annotations
 
-import os
 from typing import Callable, Dict, List, Optional, Tuple
 
+from ..config import setting
 from .http import FetchError
 from .series import Bar, PriceSeries  # noqa: F401  (re-exportados por comodidad)
 from . import stooq, yahoo_chart
@@ -37,7 +37,7 @@ DEFAULT_ORDER = ["stooq", "yahoo"]
 
 
 def order() -> List[str]:
-    raw = os.getenv("PRICE_PROVIDERS", "").strip()
+    raw = setting("PRICE_PROVIDERS").strip()
     if not raw:
         return list(DEFAULT_ORDER)
     chosen = [p.strip().lower() for p in raw.split(",") if p.strip().lower() in PROVIDERS]
