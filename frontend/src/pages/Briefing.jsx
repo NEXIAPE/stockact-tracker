@@ -9,19 +9,37 @@ import { RecommendationCard } from '../components/Recommendation.jsx'
 export default function Briefing() {
   const navigate = useNavigate()
   const [data, setData] = useState(null)
+  const [ideas, setIdeas] = useState(null)     // null = todavia cargando
+  const [ideaProblems, setIdeaProblems] = useState([])
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // El briefing se carga en dos tiempos a proposito. Lo tuyo — cartera, alertas
+  // y desvios — depende de pocas consultas y aparece enseguida. Las ideas exigen
+  // analizar varios candidatos enteros (precio, fundamentales, noticias) y pueden
+  // tardar bastante la primera vez. Bloquear toda la pagina por ellas dejaba una
+  // pestana en blanco durante casi un minuto sin explicar nada.
   const load = () => {
     setLoading(true)
+    setIdeas(null)
+    setIdeaProblems([])
+
     api
-      .briefing()
+      .briefing(false)
       .then(setData)
       .catch((err) => {
         if (err.status === 409) navigate('/perfil')
         else setError(err)
       })
       .finally(() => setLoading(false))
+
+    api
+      .ideas(3)
+      .then((r) => {
+        setIdeas(r.ideas)
+        setIdeaProblems(r.problems || [])
+      })
+      .catch(() => setIdeas([]))
   }
 
   useEffect(load, [])
@@ -102,14 +120,35 @@ export default function Briefing() {
           Puntos de partida para investigar, no una lista de compras. Ninguna requiere que
           hagas nada hoy.
         </p>
-        {data.ideas.length > 1 && <Notice kind="info">{data.ideas_sizing_notice}</Notice>}
-        {!data.ideas.length ? (
+        {ideas === null ? (
+          <Notice kind="calm">
+            Analizando candidatos: precio, fundamentales y noticias de cada uno. La primera
+            vez tarda hasta un minuto porque se consultan las fuentes de una en una para no
+            abusar de servicios gratuitos. Después queda en caché y es inmediato. Mientras
+            tanto, lo de arriba ya está listo.
+          </Notice>
+        ) : ideas.length > 0 ? (
+          <>
+            {ideas.length > 1 && <Notice kind="info">{data.ideas_sizing_notice}</Notice>}
+            {ideas.map((idea) => (
+              <RecommendationCard key={idea.ticker} rec={idea} compact />
+            ))}
+          </>
+        ) : (
           <p className="muted">
             No hay ideas para mostrar hoy. Puede ser porque aún no registraste cartera ni
             watchlist, o porque las fuentes de datos no respondieron.
           </p>
-        ) : (
-          data.ideas.map((idea) => <RecommendationCard key={idea.ticker} rec={idea} compact />)
+        )}
+        {ideaProblems.length > 0 && (
+          <>
+            <p className="muted small">Candidatos que no se pudieron analizar:</p>
+            <ul className="small gaps">
+              {ideaProblems.map((p, i) => (
+                <li key={i}>{p}</li>
+              ))}
+            </ul>
+          </>
         )}
       </section>
 
