@@ -8,15 +8,17 @@ import { ErrorBox, Loading, Notice } from '../components/Data.jsx'
 export default function Settings() {
   const [sources, setSources] = useState(null)
   const [health, setHealth] = useState(null)
+  const [acceso, setAcceso] = useState(null)
   const [confirm, setConfirm] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    Promise.all([api.sources(), api.health()])
-      .then(([s, h]) => {
+    Promise.all([api.sources(), api.health(), api.authStatus()])
+      .then(([s, h, a]) => {
         setSources(s)
         setHealth(h)
+        setAcceso(a)
       })
       .catch(setError)
   }, [])
@@ -107,6 +109,8 @@ export default function Settings() {
         </div>
       </section>
 
+      <AccessSection acceso={acceso} onError={setError} />
+
       <section className="card danger">
         <h2>Borrar todo</h2>
         <p>
@@ -133,5 +137,60 @@ export default function Settings() {
         </div>
       </section>
     </div>
+  )
+}
+
+/**
+ * Acceso a la herramienta.
+ *
+ * Se pinta distinto según esté publicada o no, porque el consejo correcto es el
+ * contrario en cada caso: sin contraseña en tu propio ordenador está bien, sin
+ * contraseña en internet es tu cartera a la vista de cualquiera.
+ */
+function AccessSection({ acceso, onError }) {
+  if (!acceso) return null
+
+  if (!acceso.auth_required) {
+    return (
+      <section className="card">
+        <h2>Acceso</h2>
+        <p className="muted small">
+          Esta copia funciona <strong>sin contraseña</strong>. En tu propio ordenador es lo
+          normal: nadie más llega a esta dirección.
+        </p>
+        <Notice kind="warn">
+          Si algún día la publicas en internet, ponle contraseña antes. Sin ella, cualquiera
+          con el enlace vería tu cartera y podría borrarla. Está explicado en el README, en
+          «Publicarla en internet».
+        </Notice>
+      </section>
+    )
+  }
+
+  return (
+    <section className="card">
+      <h2>Acceso</h2>
+      <p className="muted small">
+        Esta copia pide contraseña. La sesión dura 12 horas y luego vuelve a pedirla.
+      </p>
+      <p className="small">
+        Si sospechas que alguien más pudo entrar, o has perdido un dispositivo donde la
+        tenías abierta, puedes invalidar todas las sesiones a la vez. Tendrás que volver a
+        entrar aquí también. Tus datos no se tocan.
+      </p>
+      <button
+        onClick={() =>
+          api
+            .logoutEverywhere()
+            // Esta sesión es una de las que se cierran, así que la pantalla que
+            // estás mirando ya no vale. Recargar devuelve al formulario de
+            // acceso, y ver ese formulario es la confirmación de que funcionó.
+            .then(() => window.location.reload())
+            .catch(onError)
+        }
+      >
+        Cerrar todas las sesiones
+      </button>
+    </section>
   )
 }

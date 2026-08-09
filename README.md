@@ -228,7 +228,7 @@ mirar la cartera a todas horas es una forma conocida de decidir peor.
 ### Tests
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest        # 130 tests
+cd backend && ../.venv/bin/python -m pytest        # 244 tests
 ```
 
 | Archivo | Qué cubre |
@@ -237,10 +237,95 @@ cd backend && ../.venv/bin/python -m pytest        # 130 tests
 | `test_engine.py` | Derivación de estrategia, indicadores, cartera, guardianes integrados. |
 | `test_providers.py` | Los parsers de cada fuente contra payloads con la forma documentada. |
 | `test_api.py` | La API completa, incluidas regresiones de fallos reales encontrados probando. |
+| `test_auth.py` | La contraseña, las sesiones y que **ninguna** ruta de datos responda sin ella. |
 
 **No tocan la red**: los proveedores se sustituyen por dobles deterministas y
 fixtures. Eso prueba la lógica, no la disponibilidad — para la disponibilidad
 está `diagnose.py`.
+
+---
+
+## Publicarla en internet, con contraseña
+
+En tu ordenador la herramienta arranca **abierta**, y ahí está bien: nadie más
+llega a `127.0.0.1`. En cuanto la pones en una dirección pública eso deja de ser
+cierto, así que hay una capa de acceso. Sin ella, cualquiera con el enlace vería
+tu cartera entera y podría borrarla.
+
+Sigue siendo de **solo lectura frente al mercado**: publicarla no añade ninguna
+ruta que envíe órdenes a un bróker. Lo que se protege son tus datos.
+
+### 1. Pon tu contraseña
+
+```bash
+.venv/bin/python backend/set_password.py
+```
+
+Te la pide sin mostrarla en pantalla, calcula el hash y lo escribe en el `.env`
+como `APP_PASSWORD_HASH`. La contraseña en claro **no se guarda en ninguna
+parte** — ni en el archivo, ni en la base de datos, ni en los registros. Si la
+olvidas, vuelve a ejecutar el script: no hay forma de recuperarla, solo de
+sustituirla, y eso es a propósito.
+
+Usa una larga. Un gestor de contraseñas y no volver a pensar en ella es mejor
+que algo que puedas teclear de memoria.
+
+### 2. Construye la imagen
+
+```bash
+docker build -t inversion-personal .
+```
+
+Compila la interfaz y la sirve **desde el mismo proceso** que la API. Eso no es
+un detalle de comodidad: con un solo origen, la cookie de sesión nunca cruza
+dominios y `SameSite=Strict` puede protegerla de verdad.
+
+### 3. Arráncala
+
+```bash
+docker run -d -p 8000:8000 \
+  -v inversion_datos:/data \
+  -e APP_PASSWORD_HASH='pbkdf2_sha256$...' \
+  -e INVEST_CONTACT='tu-email@ejemplo.com' \
+  inversion-personal
+```
+
+### Tres cosas que hay que hacer bien
+
+**HTTPS, no negociable.** La cookie de sesión viaja marcada `Secure`, así que
+por HTTP normal el navegador ni la envía y no podrás entrar. Eso es la
+protección funcionando, no un fallo: sin HTTPS tu contraseña viajaría legible
+por la red. Cualquier plataforma con certificado automático sirve (Fly.io,
+Railway, Render, Caddy o Nginx delante). Solo para probar en local existe
+`APP_INSECURE_COOKIE=1`, que **nunca** debe ponerse en internet.
+
+**Un volumen de verdad para la base de datos.** El disco de un contenedor es
+efímero: sin el `-v`, el siguiente despliegue borra tu cartera, tu bitácora y
+tus tesis. Si tu plataforma ofrece disco persistente, móntalo en `/data`.
+
+**El hash como variable de la plataforma, no en el repositorio.** El `.env` está
+en `.gitignore` y así debe seguir. En Fly.io es `fly secrets set`, en Railway y
+Render el panel de variables de entorno.
+
+### Qué protege y qué no
+
+| | |
+|---|---|
+| Contraseña | PBKDF2-HMAC-SHA256, 600 000 iteraciones, sal por contraseña. |
+| Sesiones | Token de 256 bits, guardado **hasheado**; revocable al instante, caduca a las 12 h. |
+| Cookie | `HttpOnly` (invisible para JavaScript), `SameSite=Strict`, `Secure`. |
+| Fuerza bruta | Bloqueo temporal por IP tras varios intentos fallidos. |
+| Rutas de datos | Todas exigen sesión. Un test recorre la lista y falla si alguna responde sin ella. |
+
+Lo que **no** hace: no hay segundo factor, ni usuarios múltiples, ni recuperar
+la contraseña por email. Es una herramienta de una sola persona y añadir eso
+sería complejidad que no te sirve.
+
+Si sospechas que alguien más entró, **Salir de todas las sesiones** invalida
+todos los tokens a la vez, estén en el dispositivo que estén.
+
+Antes de publicar, exporta tus datos desde **Ajustes**. Son tuyos y conviene
+tener una copia fuera del servidor.
 
 ---
 

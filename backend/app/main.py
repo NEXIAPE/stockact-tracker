@@ -10,16 +10,18 @@ bróker; la herramienta te ayuda a decidir y guarda lo que le cuentas.
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.requests import Request
 
+from . import auth
 from .config import ALLOWED_ORIGINS, FINNHUB_ENABLED
 from .core.guards import NOT_ADVICE_NOTICE, READ_ONLY_NOTICE, HardRuleViolation
 from .db import init_db
-from .routers import analysis, briefing, data, portfolio, profile, watchlist
+from .routers import analysis, auth as auth_router, briefing, data, portfolio, profile, watchlist
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -65,20 +67,54 @@ def _hard_rule_handler(request: Request, exc: HardRuleViolation) -> JSONResponse
     )
 
 
-app.include_router(profile.router)
-app.include_router(portfolio.router)
-app.include_router(watchlist.router)
-app.include_router(analysis.router)
-app.include_router(briefing.router)
-app.include_router(data.router)
+# TODAS las rutas de datos van detrás de la sesión. Se aplica en el include, no
+# ruta por ruta: una ruta nueva queda protegida por omisión, y olvidarse de un
+# decorador no puede abrir un agujero. Sin contraseña configurada la dependencia
+# no hace nada, así que en local todo sigue igual.
+protegido = [Depends(auth.require_session)]
+
+app.include_router(auth_router.router)          # la puerta, necesariamente pública
+app.include_router(profile.router, dependencies=protegido)
+app.include_router(portfolio.router, dependencies=protegido)
+app.include_router(watchlist.router, dependencies=protegido)
+app.include_router(analysis.router, dependencies=protegido)
+app.include_router(briefing.router, dependencies=protegido)
+app.include_router(data.router, dependencies=protegido)
 
 
 @app.get("/api/health", tags=["estado"])
 def health():
+    """Pública a propósito, para que un balanceador pueda comprobar el servicio.
+
+    No revela ningún dato tuyo: sólo que el proceso está vivo y si está protegido.
+    """
     return {
         "ok": True,
         "read_only": True,
         "broker_connection": None,
         "finnhub_configured": FINNHUB_ENABLED,
+        "auth_required": auth.auth_required(),
         "notices": {"read_only": READ_ONLY_NOTICE, "not_advice": NOT_ADVICE_NOTICE},
     }
+
+
+# --- Interfaz servida por el mismo proceso ---------------------------------
+# Al publicar conviene que backend y frontend salgan del mismo origen: así la
+# cookie de sesión no tiene que cruzar dominios y SameSite=Strict la protege de
+# verdad. Si no hay interfaz compilada, la API funciona igual.
+FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+
+if FRONTEND_DIST.is_dir():
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def spa(full_path: str):
+        """Cualquier ruta que no sea de la API devuelve la interfaz.
+
+        La aplicación es de una sola página: navegar a /cartera directamente
+        tiene que funcionar igual que llegar desde dentro.
+        """
+        return FileResponse(FRONTEND_DIST / "index.html")

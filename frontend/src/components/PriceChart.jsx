@@ -12,6 +12,7 @@
 
 import { useEffect, useState } from 'react'
 import { api } from '../api.js'
+import { SafeLink } from './Data.jsx'
 
 const W = 640
 const H = 180
@@ -98,7 +99,7 @@ export function PriceChart({ ticker, days = 365 }) {
         {data.sma200_missing ? ` · sin media de 200 días: ${data.sma200_missing}` : ''}
         {' · '}
         {data.source_url ? (
-          <a href={data.source_url} target="_blank" rel="noreferrer">{data.source_name}</a>
+          <SafeLink url={data.source_url}>{data.source_name}</SafeLink>
         ) : (
           data.source_name
         )}

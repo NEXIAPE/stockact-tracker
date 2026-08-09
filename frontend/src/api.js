@@ -4,11 +4,23 @@
 
 const BASE = '/api'
 
+// Quien se suscriba aquí se entera cuando la sesión caduca, para volver al
+// formulario de acceso en vez de dejar la pantalla llena de errores.
+let onUnauthorized = () => {}
+export function setUnauthorizedHandler(fn) {
+  onUnauthorized = fn
+}
+
 async function request(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',   // la cookie de sesión viaja, y sólo al propio origen
     ...options,
   })
+
+  if (res.status === 401 && !path.startsWith('/auth/')) {
+    onUnauthorized()
+  }
 
   let body = null
   try {
@@ -36,6 +48,11 @@ const del = (p) => request(p, { method: 'DELETE' })
 
 export const api = {
   health: () => get('/health'),
+
+  authStatus: () => get('/auth/status'),
+  login: (password) => post('/auth/login', { password }),
+  logout: () => post('/auth/logout'),
+  logoutEverywhere: () => post('/auth/logout-all'),
 
   onboardingSteps: () => get('/profile/onboarding'),
   getProfile: () => get('/profile'),

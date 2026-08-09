@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api.js'
-import { ErrorBox, Loading, Notice } from '../components/Data.jsx'
+import { ErrorBox, Loading, Notice, SafeLink } from '../components/Data.jsx'
 
 const EMPTY = { ticker: '', reason: '', target_buy_price: '', max_drawdown_pct: '', asset_type: '' }
 
@@ -110,7 +110,7 @@ export default function Watchlist() {
                     {e.is_broad ? 'amplio' : e.breadth}
                   </span>
                 </td>
-                <td><a href={e.factsheet_url} target="_blank" rel="noreferrer">abrir</a></td>
+                <td><SafeLink url={e.factsheet_url}>abrir</SafeLink></td>
                 <td>
                   <button onClick={() => act(() => api.addWatch({ ticker: e.ticker, asset_type: 'etf' }))}>
                     Seguir
@@ -159,7 +159,7 @@ function WatchRow({ item, onChange }) {
               {f.key}: <strong>{f.value} {f.unit}</strong> — {f.source_label}, leído el {f.as_of}
               {f.source_url && (
                 <>
-                  {' '}(<a href={f.source_url} target="_blank" rel="noreferrer">fuente</a>)
+                  {' '}(<SafeLink url={f.source_url}>fuente</SafeLink>)
                 </>
               )}
             </li>

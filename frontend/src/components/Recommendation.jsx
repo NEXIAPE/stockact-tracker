@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react'
-import { Datum, DatumList, Money, Notice } from './Data.jsx'
+import { Datum, DatumList, Money, Notice, SafeLink } from './Data.jsx'
 import { PriceChart } from './PriceChart.jsx'
 
 const ACTION_STYLE = {
@@ -241,9 +241,7 @@ function NewsBlock({ news, notice }) {
         <ul className="news">
           {news.map((n, i) => (
             <li key={i}>
-              <a href={n.url} target="_blank" rel="noreferrer">
-                {n.title}
-              </a>
+              <SafeLink url={n.url}>{n.title}</SafeLink>
               <span className="muted small">
                 {' '}
                 — {n.source_name}, {n.published ?? 'sin fecha'}

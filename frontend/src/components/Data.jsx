@@ -7,6 +7,32 @@
  * con su motivo, en vez de desaparecer o convertirse en un cero.
  */
 
+/**
+ * Enlace a una URL que NO controlamos.
+ *
+ * React escapa el texto, pero NO valida el destino de un enlace: un
+ * `href="javascript:..."` se ejecuta al pulsarlo. Y aquí hay URLs de terceros —
+ * titulares de los feeds de noticias— y URLs que el propio usuario escribe al
+ * registrar la ficha de un ETF. Sólo se permiten http y https; cualquier otro
+ * esquema se muestra como texto plano en lugar de como enlace.
+ */
+export function SafeLink({ url, children, className }) {
+  let segura = null
+  try {
+    const u = new URL(url, window.location.origin)
+    if (u.protocol === 'http:' || u.protocol === 'https:') segura = u.href
+  } catch {
+    segura = null
+  }
+
+  if (!segura) return <span className={className}>{children}</span>
+  return (
+    <a className={className} href={segura} target="_blank" rel="noreferrer noopener">
+      {children}
+    </a>
+  )
+}
+
 export function Datum({ item }) {
   if (!item) return null
 
@@ -30,9 +56,7 @@ export function Datum({ item }) {
       <span className="datum__value">{item.formatted}</span>
       <span className="datum__cite">
         {item.source_url ? (
-          <a href={item.source_url} target="_blank" rel="noreferrer">
-            {item.source_name}
-          </a>
+          <SafeLink url={item.source_url}>{item.source_name}</SafeLink>
         ) : (
           item.source_name
         )}{' '}
