@@ -135,11 +135,19 @@ def check_prices(rep: Report, ticker: str) -> None:
         )
     else:
         usable = [r["key"] for r in resultados if r["ok"]]
-        if len(usable) < len(resultados):
-            print(f"         Basta con uno: se usará «{usable[0]}».")
-            print( "         Para no perder segundos intentando el que falla, pon esta línea")
-            print(f"         en el archivo .env de la raíz del repositorio:")
-            print(f"             PRICE_PROVIDERS={','.join(usable)}")
+        # Sugerir cambiar el orden SOLO si el primero de la lista es el que falla.
+        # Si el primero responde, los de detrás ni se intentan y no cuestan nada:
+        # aconsejar quitarlos seria dar un consejo que no aplica, y un consejo
+        # que no aplica resta credibilidad a los que si.
+        primero_falla = not resultados[0]["ok"]
+        if primero_falla:
+            print(f"         Se está intentando «{resultados[0]['key']}» primero y falla siempre.")
+            print( "         Para no perder segundos en cada consulta, pon esta línea")
+            print( "         en el archivo .env de la raíz del repositorio:")
+            print(f"             PRICE_PROVIDERS={','.join(usable + [r['key'] for r in resultados if not r['ok']])}")
+        elif len(usable) < len(resultados):
+            print(f"         Se usa «{usable[0]}», que responde. Los demás quedan de respaldo")
+            print( "         y no se intentan mientras ese funcione: no te cuestan tiempo.")
 
 
 def check_edgar(rep: Report, ticker: str) -> None:
