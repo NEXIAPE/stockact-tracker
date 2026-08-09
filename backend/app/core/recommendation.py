@@ -89,6 +89,7 @@ class Recommendation:
     sentiment: Optional[dict]
     context_signals: List[dict]
     beginner_warnings: List[str]
+    thesis_review: Optional[dict]
     score: float
     score_breakdown: List[dict]
     as_of: date
@@ -123,6 +124,7 @@ class Recommendation:
             "sentiment": self.sentiment,
             "context_signals": self.context_signals,
             "beginner_warnings": self.beginner_warnings,
+            "thesis_review": self.thesis_review,
             "score": round(self.score, 1),
             "score_breakdown": self.score_breakdown,
             "as_of": today.isoformat(),
@@ -1000,8 +1002,14 @@ def analyze(
     asset_type_hint: Optional[str] = None,
     today: Optional[date] = None,
     user_facts: Optional[List[DataPoint]] = None,
+    position_thesis: Optional[object] = None,
 ) -> Recommendation:
     """Análisis completo de un ticker. Lanza ``InsufficientData`` si no hay precio.
+
+    ``position_thesis`` es TU tesis sobre esta posición: por qué la compraste.
+    Se llama así, y no ``thesis`` a secas, porque dentro de esta función
+    ``thesis`` ya es la tesis NARRATIVA que redacta la recomendación. Son dos
+    cosas distintas y confundirlas hacía que la tuya se perdiera.
 
     ``user_facts`` son datos que tú leíste en una fuente oficial y registraste
     (típicamente el ratio de gastos de un ETF). Se tratan como datos citados
@@ -1167,8 +1175,21 @@ def analyze(
         risks = _selling_risks() + risks
     counter = _build_counter_argument(data, action, score)
     conf_level, conf_basis, gaps = _confidence(data, today)
+    if held and not getattr(position_thesis, "exists", False):
+        gaps.append(
+            "No anotaste por qué compraste esto, así que cualquier opinión sobre vender se "
+            "apoya sólo en el precio y en las cuentas, no en si tu razón original sigue en pie."
+        )
     warnings = _beginner_warnings(data, profile, state, strategy, action)
     sizing = _position_sizing(data, state, profile, strategy, action, last_price)
+
+    # Tu tesis. Es lo que de verdad debería mover una venta, así que viaja con la
+    # recomendación aunque no exista: que falte también es información, y de la
+    # importante.
+    from .thesis import Thesis, review_prompt
+
+    thesis_obj = position_thesis or Thesis(data.ticker, "", "", None)
+    thesis_review = review_prompt(thesis_obj, deteriorated, today) if held else None
 
     context: List[dict] = []
     if data.disclosure is not None:
@@ -1200,6 +1221,7 @@ def analyze(
         sentiment=_sentiment(data),
         context_signals=context,
         beginner_warnings=warnings,
+        thesis_review=thesis_review,
         score=score,
         score_breakdown=breakdown,
         as_of=today,

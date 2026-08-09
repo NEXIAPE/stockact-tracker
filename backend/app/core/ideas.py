@@ -24,6 +24,7 @@ from typing import List, Optional
 
 from .portfolio import PortfolioState
 from .profile import Profile, Strategy
+from . import thesis as thesis_mod
 from .recommendation import InsufficientData, Recommendation, analyze
 from .universe import BEGINNER_STARTING_UNIVERSE, lookup_etf
 
@@ -125,7 +126,8 @@ def generate(
 
     for ticker in candidate_tickers(conn, state, profile, strategy):
         try:
-            rec = analyze(ticker, profile, strategy, state, today=today)
+            rec = analyze(ticker, profile, strategy, state, today=today,
+                          position_thesis=thesis_mod.load(conn, ticker))
         except InsufficientData as exc:
             problems.append(f"{ticker}: {exc.detail}")
             continue

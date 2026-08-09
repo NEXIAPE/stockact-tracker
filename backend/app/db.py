@@ -43,6 +43,14 @@ CREATE TABLE IF NOT EXISTS holdings (
     asset_type     TEXT NOT NULL DEFAULT 'accion',   -- accion | etf
     opened_at      TEXT,
     notes          TEXT NOT NULL DEFAULT '',
+    -- Tu tesis: por qué compraste esto, y qué tendría que pasar para dejar de
+    -- creerlo. Es la señal de venta que de verdad importa. La herramienta no
+    -- puede juzgar un texto libre, y no finge hacerlo: lo que hace es ponértelo
+    -- delante cada vez que revisa la posición, para que seas tú quien decida si
+    -- sigue en pie. Sin esto, «vender» sólo puede apoyarse en el precio.
+    thesis         TEXT NOT NULL DEFAULT '',
+    invalidation   TEXT NOT NULL DEFAULT '',
+    thesis_reviewed_at TEXT,
     updated_at     TEXT NOT NULL
 );
 
@@ -144,10 +152,34 @@ def _connect(path: Optional[Path] = None) -> sqlite3.Connection:
     return conn
 
 
+# Columnas añadidas después de la primera versión. SQLite no las crea en una
+# tabla que ya existe, así que hay que añadirlas explícitamente: si no, quien ya
+# tenga datos vería errores raros al actualizar en vez de estrenar la función.
+MIGRATIONS = {
+    "holdings": [
+        ("thesis", "TEXT NOT NULL DEFAULT ''"),
+        ("invalidation", "TEXT NOT NULL DEFAULT ''"),
+        ("thesis_reviewed_at", "TEXT"),
+    ],
+    "watchlist": [
+        ("thesis", "TEXT NOT NULL DEFAULT ''"),
+    ],
+}
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    for table, columns in MIGRATIONS.items():
+        existing = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+        for name, definition in columns:
+            if name not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+
+
 def init_db(path: Optional[Path] = None) -> None:
     conn = _connect(path)
     try:
         conn.executescript(SCHEMA)
+        _migrate(conn)
         conn.commit()
     finally:
         conn.close()
@@ -158,6 +190,7 @@ def get_conn(path: Optional[Path] = None) -> Iterator[sqlite3.Connection]:
     conn = _connect(path)
     try:
         conn.executescript(SCHEMA)
+        _migrate(conn)
         yield conn
         conn.commit()
     finally:

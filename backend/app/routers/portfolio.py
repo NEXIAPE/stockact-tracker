@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import APIRouter, HTTPException
 
 from ..core.portfolio import load_portfolio, portfolio_dict
@@ -9,7 +11,8 @@ from ..core.universe import guess_asset_type
 from ..db import get_conn, now_iso
 from ..deps import load_profile
 from ..core.profile import derive_strategy
-from ..schemas import CashIn, HoldingIn, TradeIn
+from ..core import thesis as thesis_mod
+from ..schemas import CashIn, HoldingIn, ThesisIn, TradeIn
 
 router = APIRouter(prefix="/api/portfolio", tags=["cartera"])
 
@@ -29,15 +32,28 @@ def upsert_holding(payload: HoldingIn):
     """Registra o actualiza una posición. Es un registro de lo que YA tienes."""
     asset_type = guess_asset_type(payload.ticker, payload.asset_type)
     with get_conn() as conn:
+        existing = conn.execute(
+            "SELECT thesis, invalidation FROM holdings WHERE ticker = ?", (payload.ticker,)
+        ).fetchone()
+        # Actualizar una posición sin volver a escribir la tesis no debe borrarla.
+        thesis_text = payload.thesis or (existing["thesis"] if existing else "")
+        invalidation = payload.invalidation or (existing["invalidation"] if existing else "")
+        reviewed = date.today().isoformat() if (payload.thesis or payload.invalidation) else None
+
         conn.execute(
             """
-            INSERT INTO holdings (ticker, shares, avg_cost, asset_type, notes, updated_at)
-            VALUES (?,?,?,?,?,?)
+            INSERT INTO holdings (ticker, shares, avg_cost, asset_type, notes,
+                                  thesis, invalidation, thesis_reviewed_at, updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?)
             ON CONFLICT(ticker) DO UPDATE SET
                 shares = excluded.shares,
                 avg_cost = excluded.avg_cost,
                 asset_type = excluded.asset_type,
                 notes = excluded.notes,
+                thesis = excluded.thesis,
+                invalidation = excluded.invalidation,
+                thesis_reviewed_at = COALESCE(excluded.thesis_reviewed_at,
+                                              holdings.thesis_reviewed_at),
                 updated_at = excluded.updated_at
             """,
             (
@@ -46,10 +62,63 @@ def upsert_holding(payload: HoldingIn):
                 payload.avg_cost,
                 asset_type,
                 payload.notes,
+                thesis_text,
+                invalidation,
+                reviewed,
                 now_iso(),
             ),
         )
-    return {"ok": True, "ticker": payload.ticker}
+    return {
+        "ok": True,
+        "ticker": payload.ticker,
+        "thesis_missing": not thesis_text.strip(),
+        "note": (
+            "No anotaste por qué compraste esto. Sin esa nota, lo único que puedo mirar "
+            "para opinar sobre vender es el precio, que es la peor señal posible."
+        ) if not thesis_text.strip() else "",
+    }
+
+
+@router.get("/thesis")
+def list_theses():
+    """Tu tesis de cada posición, y cuáles faltan o llevan mucho sin revisar."""
+    with get_conn() as conn:
+        todas = thesis_mod.load_all(conn)
+    return {
+        "theses": [t.to_dict() for t in todas],
+        "missing_warning": thesis_mod.missing_thesis_warning(todas),
+        "stale_warning": thesis_mod.stale_thesis_warning(todas),
+        "why_it_matters": (
+            "La razón por la que compraste algo es la única señal de venta que vale. "
+            "Que el precio baje no significa que esa razón haya dejado de ser cierta."
+        ),
+    }
+
+
+@router.put("/holdings/{ticker}/thesis")
+def save_thesis(ticker: str, payload: ThesisIn):
+    """Anota o revisa por qué tienes esta posición."""
+    ticker = ticker.strip().upper()
+    with get_conn() as conn:
+        exists = conn.execute("SELECT 1 FROM holdings WHERE ticker = ?", (ticker,)).fetchone()
+        if not exists:
+            raise HTTPException(404, f"No tienes {ticker} registrado.")
+        conn.execute(
+            """
+            UPDATE holdings SET thesis = ?, invalidation = ?, thesis_reviewed_at = ?,
+                                updated_at = ?
+            WHERE ticker = ?
+            """,
+            (
+                payload.thesis,
+                payload.invalidation,
+                date.today().isoformat() if payload.mark_reviewed else None,
+                now_iso(),
+                ticker,
+            ),
+        )
+        guardada = thesis_mod.load(conn, ticker)
+    return {"ok": True, "thesis": guardada.to_dict()}
 
 
 @router.delete("/holdings/{ticker}")

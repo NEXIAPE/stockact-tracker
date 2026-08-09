@@ -24,6 +24,7 @@ from .alerts import list_alerts
 from .guards import NOT_ADVICE_NOTICE, READ_ONLY_NOTICE
 from .ideas import ALTERNATIVES_NOTICE
 from .ideas import generate as generate_ideas
+from . import thesis as thesis_mod
 from .portfolio import PortfolioState, check_deviations, portfolio_dict
 from .profile import Profile, Strategy
 
@@ -69,6 +70,16 @@ def build(
         generated, idea_problems = generate_ideas(conn, profile, strategy, state, limit=3, today=today)
         ideas = [i.to_dict() for i in generated]
 
+    # Tesis ausentes o sin revisar. Va antes que el estado de los datos porque
+    # es un hueco tuyo, no de las fuentes, y es el que más pesa al decidir ventas.
+    theses = thesis_mod.load_all(conn)
+    thesis_notes: List[str] = [
+        n for n in (
+            thesis_mod.missing_thesis_warning(theses),
+            thesis_mod.stale_thesis_warning(theses, today),
+        ) if n
+    ]
+
     data_health: List[str] = []
     if state.missing_prices:
         data_health.append(
@@ -103,6 +114,7 @@ def build(
         "deviations": [d.to_dict(today) for d in deviations],
         "ideas": ideas,
         "ideas_sizing_notice": ALTERNATIVES_NOTICE,
+        "thesis_notes": thesis_notes,
         "data_health": data_health,
         "previous_run": last_run["ran_at"] if last_run else None,
         "notices": {

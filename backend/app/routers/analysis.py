@@ -9,6 +9,7 @@ from ..core.ideas import ALTERNATIVES_NOTICE
 from ..core.ideas import generate as generate_ideas
 from ..core.recommendation import InsufficientData, analyze
 from ..db import get_conn
+from ..core import thesis as thesis_mod
 from ..deps import context, load_user_facts
 
 router = APIRouter(prefix="/api", tags=["análisis"])
@@ -28,7 +29,8 @@ def analyze_ticker(ticker: str, asset_type: str | None = Query(default=None)):
 
         try:
             rec = analyze(ticker, profile, strategy, state,
-                          asset_type_hint=asset_type, user_facts=facts)
+                          asset_type_hint=asset_type, user_facts=facts,
+                          position_thesis=thesis_mod.load(conn, ticker))
         except InsufficientData as exc:
             # No opinamos sin datos. Se dice qué falta y qué se intentó.
             raise HTTPException(

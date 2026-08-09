@@ -44,6 +44,12 @@ class HoldingIn(BaseModel):
     avg_cost: float = Field(ge=0, description="Coste medio por acción, en USD")
     asset_type: Optional[str] = None
     notes: str = ""
+    # Tu tesis. Opcional para no bloquear el registro, pero la herramienta avisa
+    # si falta: sin ella, opinar sobre vender solo puede apoyarse en el precio.
+    thesis: str = Field(default="", description="Por qué compraste esto")
+    invalidation: str = Field(
+        default="", description="Qué tendría que pasar para que dejaras de creerlo"
+    )
 
     @field_validator("ticker")
     @classmethod
@@ -125,3 +131,14 @@ class UserFactIn(BaseModel):
         if not v:
             raise ValueError("key requerido")
         return v
+
+
+class ThesisIn(BaseModel):
+    """Anotar o revisar la tesis de una posición que ya tienes."""
+
+    thesis: str = ""
+    invalidation: str = ""
+    mark_reviewed: bool = Field(
+        default=True,
+        description="Marca la tesis como revisada hoy (para saber cuándo la miraste)",
+    )

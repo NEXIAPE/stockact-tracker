@@ -399,3 +399,80 @@ class TestDefectsFoundInManualRun:
         again = Alert(kind="cartera", ticker="", subject="sector|Peso del sector Salud",
                       title=title, body="Salud pesa de más.", day=_date(2026, 8, 8))
         assert b.fingerprint() == again.fingerprint()
+
+
+class TestThesis:
+    """La razon por la que compraste es la unica senal de venta que vale.
+
+    Sin ella, opinar sobre vender solo puede apoyarse en el precio, que es
+    justo la peor senal posible.
+    """
+
+    def _hold(self, client, **extra):
+        client.post("/api/profile", json=PROFILE)
+        client.put("/api/portfolio/cash", json={"amount": 1000})
+        payload = {"ticker": "VOO", "shares": 5, "avg_cost": 90, "asset_type": "etf"}
+        payload.update(extra)
+        return client.put("/api/portfolio/holdings", json=payload)
+
+    def test_registering_without_a_thesis_warns(self, client):
+        body = self._hold(client).json()
+        assert body["thesis_missing"] is True
+        assert "precio" in body["note"].lower()
+
+    def test_a_thesis_can_be_saved_with_the_holding(self, client):
+        body = self._hold(
+            client,
+            thesis="Quiero exposición al mercado entero sin elegir empresas.",
+            invalidation="Si aparece un fondo equivalente mucho más barato.",
+        ).json()
+        assert body["thesis_missing"] is False
+
+    def test_updating_shares_does_not_erase_the_thesis(self, client):
+        """Cambiar el número de participaciones no puede borrar por qué compraste."""
+        self._hold(client, thesis="Mercado entero, sin elegir empresas.")
+        self._hold(client, shares=9)  # sin volver a mandar la tesis
+        theses = client.get("/api/portfolio/thesis").json()["theses"]
+        assert theses[0]["text"] == "Mercado entero, sin elegir empresas."
+
+    def test_the_analysis_shows_your_thesis_back_to_you(self, client):
+        self._hold(client, thesis="Mercado entero.", invalidation="Si sube mucho la comisión.")
+        review = client.get("/api/analyze/VOO").json()["thesis_review"]
+        assert review["has_thesis"] is True
+        assert review["thesis"] == "Mercado entero."
+        assert review["question"]
+
+    def test_a_missing_thesis_is_reported_as_a_gap(self, client):
+        self._hold(client)
+        rec = client.get("/api/analyze/VOO").json()
+        assert rec["thesis_review"]["has_thesis"] is False
+        assert any("no anotaste" in g.lower() for g in rec["confidence"]["data_gaps"])
+
+    def test_the_tool_does_not_claim_to_judge_your_thesis(self, client):
+        self._hold(client, thesis="Creo en el mercado a largo plazo.")
+        review = client.get("/api/analyze/VOO").json()["thesis_review"]
+        assert "no juzga" in review["explanation"].lower()
+
+    def test_reviewing_records_the_date(self, client):
+        self._hold(client, thesis="Mercado entero.")
+        r = client.put("/api/portfolio/holdings/VOO/thesis",
+                       json={"thesis": "Mercado entero, revisado.", "invalidation": "",
+                             "mark_reviewed": True})
+        assert r.json()["thesis"]["reviewed_at"] == TODAY.isoformat()
+        assert r.json()["thesis"]["days_since_review"] == 0
+
+    def test_thesis_for_an_unknown_holding_is_404(self, client):
+        client.post("/api/profile", json=PROFILE)
+        assert client.put("/api/portfolio/holdings/NOPE/thesis",
+                          json={"thesis": "x"}).status_code == 404
+
+    def test_briefing_surfaces_missing_theses(self, client):
+        self._hold(client)
+        notes = client.get("/api/briefing?include_ideas=false").json()["thesis_notes"]
+        assert any("VOO" in n for n in notes)
+
+    def test_no_analysis_for_something_you_do_not_hold_asks_about_thesis(self, client):
+        """Solo tiene sentido preguntar por la tesis de lo que ya tienes."""
+        client.post("/api/profile", json=PROFILE)
+        client.put("/api/portfolio/cash", json={"amount": 1000})
+        assert client.get("/api/analyze/VTI").json()["thesis_review"] is None

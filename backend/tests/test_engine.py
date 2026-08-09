@@ -260,6 +260,7 @@ class TestRecommendationGuardIntegration:
             sentiment=None,
             context_signals=[],
             beginner_warnings=[],
+            thesis_review=None,
             score=30.0,
             score_breakdown=[{"factor": "Tendencia", "points": 10.0, "note": "Alcista."}],
             as_of=TODAY,
