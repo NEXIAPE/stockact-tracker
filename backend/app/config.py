@@ -37,18 +37,35 @@ def _load_env_file(path: Path) -> dict:
     values: dict[str, str] = {}
     if not path.exists():
         return values
-    try:
-        for raw in path.read_text(encoding="utf-8").splitlines():
-            line = raw.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, _, value = line.partition("=")
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
-            if key:
-                values[key] = value
-    except OSError:
-        pass  # un .env ilegible no debe impedir arrancar
+    # Los editores de Windows guardan en codificaciones distintas y el usuario no
+    # tiene por qué saber cuál. Se prueban en orden:
+    #   utf-8-sig  descarta el BOM que escribe PowerShell 5.1 con -Encoding UTF8.
+    #              Sin esto, el BOM se pega a la PRIMERA clave ("﻿INVEST_CONTACT")
+    #              y ese ajuste se ignora en silencio mientras los demás funcionan.
+    #   utf-16     lo que produce el Bloc de notas al elegir "Unicode".
+    #   latin-1    último recurso: nunca falla, aunque pueda deformar acentos.
+    text = None
+    for encoding in ("utf-8-sig", "utf-16", "latin-1"):
+        try:
+            text = path.read_text(encoding=encoding)
+            break
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+        except OSError:
+            return values
+
+    if text is None:
+        return values  # ilegible: se sigue con los valores por defecto
+
+    for raw in text.splitlines():
+        line = raw.strip().lstrip("﻿")
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key:
+            values[key] = value
     return values
 
 

@@ -370,3 +370,39 @@ class TestConfigFile:
         assert "puesta" in entrada["value"]
         texto_completo = " ".join(f"{i['name']}{i['value']}{i['origin']}" for i in cfg.config_report())
         assert "d9s9pc1r01qopv46bk40" not in texto_completo
+
+    def test_a_bom_written_by_windows_powershell_is_tolerated(self, tmp_path, monkeypatch):
+        """Regresion de un fallo real en Windows.
+
+        "Set-Content -Encoding UTF8" en PowerShell 5.1 antepone un BOM. Ese BOM
+        se pega a la PRIMERA clave del archivo, que deja de reconocerse mientras
+        las demas funcionan: el sintoma es que un solo ajuste se ignora en
+        silencio, que es dificilisimo de diagnosticar.
+        """
+        env = tmp_path / ".env"
+        env.write_bytes(
+            "﻿INVEST_CONTACT=yo@ejemplo.pe\nPRICE_PROVIDERS=yahoo\n".encode("utf-8")
+        )
+        monkeypatch.delenv("INVEST_CONTACT", raising=False)
+        cfg = self._reload(monkeypatch, env)
+        assert cfg.CONTACT_EMAIL == "yo@ejemplo.pe", "El BOM se comio la primera clave."
+        assert "INVEST_CONTACT" in cfg._FILE_VALUES
+
+    @pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig", "utf-16", "latin-1"])
+    def test_other_windows_encodings_are_read(self, tmp_path, monkeypatch, encoding):
+        """El Bloc de notas ofrece varias codificaciones y el usuario no tiene por
+        que saber cual elegir. Ninguna debe impedir arrancar: un .env en UTF-16
+        llegaba a reventar el arranque entero con UnicodeDecodeError."""
+        env = tmp_path / f".env-{encoding}"
+        env.write_bytes("INVEST_CONTACT=yo@ejemplo.pe\n".encode(encoding))
+        monkeypatch.delenv("INVEST_CONTACT", raising=False)
+        cfg = self._reload(monkeypatch, env)
+        assert cfg.CONTACT_EMAIL == "yo@ejemplo.pe"
+
+    def test_binary_garbage_does_not_crash_startup(self, tmp_path, monkeypatch):
+        """Un .env corrupto degrada a los valores por defecto, no tumba la app."""
+        env = tmp_path / ".env"
+        env.write_bytes(b"\x00\xff\xfe\x01binario sin sentido\x00")
+        monkeypatch.delenv("INVEST_CONTACT", raising=False)
+        cfg = self._reload(monkeypatch, env)
+        assert cfg.CONTACT_EMAIL.endswith("example.com")

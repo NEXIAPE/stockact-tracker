@@ -148,7 +148,11 @@ if (Test-Path $EnvFile) {
     if (-not [string]::IsNullOrWhiteSpace($finnhub)) {
         $lineas += "FINNHUB_API_KEY=$finnhub"
     }
-    Set-Content -Path $EnvFile -Value $lineas -Encoding UTF8
+    # OJO: "Set-Content -Encoding UTF8" en Windows PowerShell 5.1 escribe un BOM,
+    # y ese BOM se pega a la primera clave del archivo, que entonces se ignora en
+    # silencio. Se escribe con .NET indicando explicitamente UTF-8 SIN BOM.
+    $sinBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllLines($EnvFile, $lineas, $sinBom)
     Bien "Guardado en .env"
 }
 
