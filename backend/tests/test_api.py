@@ -544,3 +544,72 @@ class TestPerformance:
                 assert d["source_name"] and d["as_of"]
             else:
                 assert d["reason"]
+
+
+class TestTodaySummary:
+    """Al abrir debe saberse en una linea si hay algo que hacer o no.
+
+    Decir «hoy no hay nada que hacer» alto y claro es una funcion del producto:
+    una herramienta que cada manana parece tener algo urgente acaba ensenandote
+    a operar de mas.
+    """
+
+    def test_an_empty_portfolio_says_where_to_start(self, client):
+        client.post("/api/profile", json=PROFILE)
+        hoy = client.get("/api/briefing?include_ideas=false").json()["today"]
+        assert hoy["status"] == "empezar"
+        assert hoy["items"][0]["where"] == "/cartera"
+
+    def test_a_tidy_portfolio_says_there_is_nothing_to_do(self, client):
+        client.post("/api/profile", json=PROFILE)
+        strategy = client.get("/api/profile").json()["profile"]["strategy"]
+        acciones = strategy["target_stocks_pct"]
+        client.put("/api/portfolio/holdings", json={
+            "ticker": "VTI", "shares": acciones, "avg_cost": 1, "asset_type": "etf",
+            "thesis": "Mercado entero de EE.UU.",
+        })
+        client.put("/api/portfolio/holdings", json={
+            "ticker": "BND", "shares": 100 - acciones, "avg_cost": 1, "asset_type": "etf",
+            "thesis": "Bonos para amortiguar caídas.",
+        })
+        client.put("/api/portfolio/cash", json={"amount": 5})
+        hoy = client.get("/api/briefing?include_ideas=false").json()["today"]
+        assert hoy["status"] == "nada_que_hacer"
+        assert hoy["items"] == []
+        assert "normal" in hoy["explanation"].lower()
+
+    def test_problems_are_listed_with_where_to_go(self, client):
+        client.post("/api/profile", json=PROFILE)
+        client.put("/api/portfolio/holdings",
+                   json={"ticker": "AAPL", "shares": 100, "avg_cost": 1, "asset_type": "accion"})
+        client.put("/api/portfolio/cash", json={"amount": 0})
+        hoy = client.get("/api/briefing?include_ideas=false").json()["today"]
+        assert hoy["status"] == "algo_que_mirar"
+        assert hoy["items"]
+        assert all(i["where"].startswith("/") for i in hoy["items"])
+
+    def test_it_never_sounds_urgent(self, client):
+        from app.core.guards import assert_no_pressure_language
+
+        client.post("/api/profile", json=PROFILE)
+        client.put("/api/portfolio/holdings",
+                   json={"ticker": "AAPL", "shares": 100, "avg_cost": 1, "asset_type": "accion"})
+        hoy = client.get("/api/briefing?include_ideas=false").json()["today"]
+        # La propiedad que importa: NINGUN texto de este bloque puede sonar a
+        # urgencia, ni el titular, ni la explicacion, ni los enlaces.
+        assert_no_pressure_language(hoy["headline"], "titular del día")
+        assert_no_pressure_language(hoy["explanation"], "explicación del día")
+        for item in hoy["items"]:
+            assert_no_pressure_language(item["text"], "elemento del día")
+        # Y debe decir explicitamente que no hay que actuar hoy.
+        assert "actúes hoy" in hoy["explanation"].lower()
+
+    def test_at_most_four_items_so_it_stays_scannable(self, client):
+        client.post("/api/profile", json=PROFILE)
+        client.put("/api/portfolio/holdings",
+                   json={"ticker": "AAPL", "shares": 100, "avg_cost": 1, "asset_type": "accion"})
+        client.put("/api/portfolio/holdings",
+                   json={"ticker": "MSFT", "shares": 100, "avg_cost": 1, "asset_type": "accion"})
+        client.post("/api/alerts/refresh")
+        hoy = client.get("/api/briefing?include_ideas=false").json()["today"]
+        assert len(hoy["items"]) <= 4

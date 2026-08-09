@@ -20,7 +20,7 @@ Python puro), que se conserva y se integra como señal de contexto. Ver
 | Pantalla | Qué te da |
 |---|---|
 | **Perfil / onboarding** | Define capital, aporte mensual, riesgo, horizonte y objetivos → deriva una estrategia mínima, explicando el porqué de cada regla. |
-| **Briefing diario** | Resumen priorizado: cómo va tu cartera, alertas, desvíos frente a tu plan e ideas que encajan contigo. |
+| **Briefing diario** | Arriba del todo, en una línea: **¿hay algo que hacer hoy?** Debajo, cartera, alertas, desvíos e ideas. |
 | **Analizar** | Escribe un símbolo y recibe la recomendación estructurada completa. |
 | **Cartera** | Registras lo que ya tienes; se valora con precios reales y se revisa concentración y diversificación. Incluye **tu tesis** de cada posición y **cómo te va frente a un fondo amplio**. |
 | **Watchlist** | Símbolos que sigues, con criterios propios de aviso. |
@@ -46,6 +46,15 @@ mantienen deliberadamente separadas:
 Toda idea de vender o recortar añade sus riesgos propios: que realizar la
 operación la vuelve definitiva, su coste tributario, y lo caro que sale acertar
 dos veces al intentar volver a entrar.
+
+### «Hoy no hay nada que hacer»
+
+Lo primero que ves al abrir responde una sola pregunta, en grande y en una
+línea. La mayoría de los días la respuesta correcta es que no hay nada que
+hacer, y **decirlo alto y claro es una función del producto, no un hueco**: una
+herramienta que cada mañana parece tener algo urgente acaba enseñándote a operar
+de más. Cuando sí hay algo, se lista ordenado por lo que más suele importar, con
+el enlace a donde mirarlo, y se dice explícitamente que no pide que actúes hoy.
 
 ### Tu tesis: la única señal de venta que vale
 

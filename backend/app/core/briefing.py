@@ -51,6 +51,84 @@ def _headline(state: PortfolioState, unread: int, deviations: int) -> str:
     return "Para revisar cuando tengas un rato: " + "; ".join(parts) + "."
 
 
+def _today_summary(
+    state: PortfolioState,
+    unread: List[dict],
+    deviations: List,
+    thesis_notes: List[str],
+) -> dict:
+    """Lo único que necesitas saber al abrir: ¿hay algo que hacer hoy?
+
+    Existe porque hasta ahora había que leer cuatro bloques para averiguarlo, y
+    la respuesta correcta la mayoría de los días es «no». Decirlo alto y claro
+    es una función del producto, no un hueco: una herramienta que cada mañana
+    parece tener algo urgente acaba enseñándote a operar de más.
+    """
+    if state.is_empty():
+        return {
+            "status": "empezar",
+            "headline": "Empieza por registrar lo que ya tienes.",
+            "explanation": (
+                "El primer paso no es comprar nada. Anota tus posiciones y tu efectivo "
+                "para que todo lo demás se calcule sobre datos reales y no sobre supuestos."
+            ),
+            "items": [{"text": "Registrar cartera y efectivo", "where": "/cartera"}],
+        }
+
+    items: List[dict] = []
+    if unread:
+        items.append({
+            "text": f"{len(unread)} alerta(s) sin leer",
+            "where": "/alertas",
+        })
+    atencion = [d for d in deviations if d.severity == "atencion"]
+    if atencion:
+        items.append({
+            "text": f"{len(atencion)} desvío(s) frente a tu estrategia",
+            "where": "/cartera",
+        })
+    if thesis_notes:
+        items.append({
+            "text": "Falta anotar por qué compraste alguna posición",
+            "where": "/cartera",
+        })
+    if state.missing_prices:
+        items.append({
+            "text": "No se pudo valorar alguna posición",
+            "where": "/cartera",
+        })
+
+    if not items:
+        return {
+            "status": "nada_que_hacer",
+            "headline": "Hoy no hay nada que hacer.",
+            "explanation": (
+                "Tu cartera sigue alineada con tu plan y no hay nada pendiente de mirar. "
+                "Un día sin decisiones es el estado normal de una cartera de largo plazo, "
+                "no una señal de que falte algo."
+            ),
+            "items": [],
+        }
+
+    return {
+        "status": "algo_que_mirar",
+        "headline": (
+            "Hay algo que vale la pena mirar cuando tengas un rato."
+            if len(items) == 1
+            else "Hay unas cuantas cosas que vale la pena mirar cuando tengas un rato."
+        ),
+        # Nota: el guardián anti-FOMO caza la palabra «urgente» aunque vaya
+        # negada. Se reescribe la frase en vez de ablandar el guardián: un
+        # linter tosco que obliga a reformular de vez en cuando es mejor que uno
+        # listo al que se le pueda colar lo que debía bloquear.
+        "explanation": (
+            "Nada de esto pide que actúes hoy. Están ordenadas por lo que más suele "
+            "importar."
+        ),
+        "items": items[:4],
+    }
+
+
 def build(
     conn,
     profile: Profile,
@@ -108,6 +186,7 @@ def build(
 
     return {
         "date": today.isoformat(),
+        "today": _today_summary(state, unread, deviations, thesis_notes),
         "headline": _headline(state, len(unread), len(deviations)),
         "portfolio": portfolio_dict(state, profile, strategy),
         "unread_alerts": unread,

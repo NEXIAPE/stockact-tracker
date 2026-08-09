@@ -60,7 +60,7 @@ export default function Briefing() {
         <button onClick={load}>Actualizar</button>
       </header>
 
-      <Notice kind="calm">{data.headline}</Notice>
+      <TodayCard today={data.today} />
 
       <section className="card">
         <h2>Cómo va tu cartera</h2>
@@ -175,6 +175,33 @@ export default function Briefing() {
         <p>{data.notices.not_advice}</p>
       </div>
     </div>
+  )
+}
+
+function TodayCard({ today }) {
+  if (!today) return null
+
+  const clase =
+    today.status === 'nada_que_hacer'
+      ? 'today today--calm'
+      : today.status === 'empezar'
+        ? 'today today--start'
+        : 'today today--look'
+
+  return (
+    <section className={clase}>
+      <h2 className="today__headline">{today.headline}</h2>
+      <p className="today__explain">{today.explanation}</p>
+      {today.items.length > 0 && (
+        <ul className="today__items">
+          {today.items.map((i, n) => (
+            <li key={n}>
+              <Link to={i.where}>{i.text}</Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 

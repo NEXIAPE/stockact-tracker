@@ -240,3 +240,21 @@ button.linkish {
 .thesis-edit { border-top: 1px solid var(--line); padding: 10px 0; }
 .thesis-edit--missing { border-left: 3px solid var(--warn-line); padding-left: 10px; }
 .thesis-edit textarea { width: 100%; margin: 4px 0 10px; font: inherit; }
+
+/* --- «¿qué hago hoy?»: lo primero y lo más grande de la pantalla ---
+   El color señala el estado sin gritar: verde apagado cuando no hay nada que
+   hacer (que es lo normal y es una buena noticia), arena cuando hay algo que
+   mirar. Nada de rojo: el rojo pide reaccionar. */
+.today { border-radius: 10px; padding: 20px 22px; border: 1px solid var(--line); }
+.today--calm { background: var(--ok-bg); border-color: var(--accent); }
+.today--look { background: var(--warn-bg); border-color: var(--warn-line); }
+.today--start { background: var(--calm-bg); }
+.today__headline { font-size: 22px; margin: 0 0 6px; }
+.today__explain { margin: 0; color: var(--muted); max-width: 62ch; }
+.today__items { margin: 12px 0 0; padding-left: 18px; }
+.today__items li { margin-bottom: 4px; }
+
+@media (max-width: 640px) {
+  .today { padding: 16px; }
+  .today__headline { font-size: 19px; }
+}
