@@ -47,18 +47,18 @@ export default function Settings() {
 
       <section className="card">
         <h2>Fuentes de datos</h2>
-        <table className="table">
+        <table className="table table--stack">
           <thead>
             <tr><th>Fuente</th><th>Qué aporta</th><th>Costo</th><th>Límites</th><th>Estado</th></tr>
           </thead>
           <tbody>
             {sources.sources.map((s) => (
               <tr key={s.name}>
-                <td><strong>{s.name}</strong></td>
-                <td className="small">{s.provides}</td>
-                <td className="small">{s.cost}</td>
-                <td className="small muted">{s.limits}</td>
-                <td>
+                <td data-label="Fuente"><strong>{s.name}</strong></td>
+                <td data-label="Qué aporta" className="small">{s.provides}</td>
+                <td data-label="Costo" className="small">{s.cost}</td>
+                <td data-label="Límites" className="small muted">{s.limits}</td>
+                <td data-label="Estado">
                   <span className={`tag tag--${s.enabled ? 'ok' : 'warn'}`}>
                     {s.enabled ? 'activa' : 'inactiva'}
                   </span>

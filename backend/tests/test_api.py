@@ -634,3 +634,72 @@ class TestTodaySummary:
         client.post("/api/alerts/refresh")
         hoy = client.get("/api/briefing?include_ideas=false").json()["today"]
         assert len(hoy["items"]) <= 4
+
+
+# ---------------------------------------------------------------------------
+class TestPortfolioLoadsWithoutTheNetwork:
+    """La cartera local no puede quedar secuestrada por una llamada remota.
+
+    Cuántas participaciones tienes, a qué coste y cuánto efectivo te queda
+    están en tu disco. Medido con la red caída, la pantalla tardaba 25 segundos
+    en mostrarlos porque esperaba a los precios. Ahora hay una fase local.
+    """
+
+    def _setup(self, client):
+        client.post("/api/profile", json=PROFILE)
+        client.put("/api/portfolio/holdings", json={
+            "ticker": "VTI", "shares": 30, "avg_cost": 240, "asset_type": "etf"})
+        client.put("/api/portfolio/cash", json={"amount": 2500})
+
+    def test_your_own_numbers_come_back_without_asking_for_prices(self, client):
+        self._setup(client)
+        d = client.get("/api/portfolio?with_prices=false").json()
+        assert d["cash"] == 2500
+        pos = d["positions"][0]
+        assert pos["ticker"] == "VTI"
+        assert pos["shares"] == 30
+        assert pos["avg_cost"] == 240
+        assert pos["cost_basis"] == 7200
+
+    def test_it_does_not_touch_the_network(self, client, monkeypatch):
+        """Si algo llama al proveedor en la fase local, el test estalla."""
+        self._setup(client)
+
+        def prohibido(*a, **k):
+            raise AssertionError("La fase local pidió un precio; no debe.")
+
+        monkeypatch.setattr("app.core.portfolio.prices.fetch_daily", prohibido)
+        r = client.get("/api/portfolio?with_prices=false")
+        assert r.status_code == 200
+
+    def test_pending_is_never_dressed_up_as_failed(self, client):
+        """La regla dura aquí.
+
+        Decir «no se pudo obtener el precio» cuando ni siquiera se ha pedido es
+        inventarse un fallo. Y decir que un valor es cero, peor.
+        """
+        self._setup(client)
+        d = client.get("/api/portfolio?with_prices=false").json()
+
+        assert d["prices_pending"] is True
+        assert d["missing_prices"] == []
+        assert d["data_warning"] == ""
+        assert d["positions"][0]["price_pending"] is True
+        assert d["positions"][0]["price_error"] == ""
+        # Nada de ceros de relleno donde falta el dato.
+        assert d["total_value"] is None
+        assert d["positions"][0]["market_value"] is None
+        assert d["positions"][0]["unrealized_gain"] is None
+
+    def test_no_deviations_are_invented_without_weights(self, client):
+        """Sin precios no hay pesos, y sin pesos un desvío no significa nada."""
+        self._setup(client)
+        assert client.get("/api/portfolio?with_prices=false").json()["deviations"] == []
+
+    def test_the_valued_version_still_works_as_before(self, client):
+        self._setup(client)
+        d = client.get("/api/portfolio").json()
+        assert d["prices_pending"] is False
+        assert d["positions"][0]["price_pending"] is False
+        assert d["positions"][0]["market_value"] is not None
+        assert d["total_value"] is not None

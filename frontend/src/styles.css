@@ -226,7 +226,25 @@ button.linkish {
 .perf__fill--bench { background: var(--muted); }
 
 @media (max-width: 640px) {
-  .nav { gap: 10px; font-size: 14px; }
+  /* La barra ocupaba dos líneas y se quedaba arriba del todo, así que en una
+     página larga —Ajustes mide más de siete mil píxeles— cambiar de pantalla
+     obligaba a subir entera. Ahora es una sola fila que se desliza de lado y
+     acompaña al scroll. El deslizamiento lateral es el gesto de siempre en una
+     fila de pestañas; no hay que descubrir nada. */
+  .nav {
+    gap: 16px; font-size: 14px;
+    position: sticky; top: 0; z-index: 20;
+    background: var(--bg);
+    flex-wrap: nowrap; overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    /* Se extiende hasta los bordes para que el contenido no asome por los
+       márgenes laterales al pasar por debajo. */
+    margin: 0 -20px 16px; padding: 12px 20px;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav a, .nav__logout { white-space: nowrap; flex: none; }
+  .nav__brand { display: none; }   /* el título ya está en la pestaña del navegador */
   .nav__note { display: none; }
   .rec__head { flex-direction: column; align-items: flex-start; }
   .datum { grid-template-columns: 1fr; }
@@ -234,6 +252,41 @@ button.linkish {
   .perf__bar { grid-template-columns: 100px 1fr auto; }
   .breakdown__factor { white-space: normal; }
   .table { display: block; overflow-x: auto; }
+
+  /* Un `.row` sin envolver empujaba su último elemento fuera de la pantalla.
+     Donde peor se veía era en «Borrar definitivamente»: el botón más peligroso
+     de la aplicación, cortado por el borde derecho. */
+  .row { flex-wrap: wrap; }
+  .row > input, .row > select, .row.wrap > input, .row.wrap > select { flex: 1 1 100%; }
+
+  /* Los campos por debajo de 16px hacen que iOS haga zoom al enfocarlos y
+     dejan la página descuadrada. */
+  input, select, textarea { font-size: 16px; }
+
+  /* Objetivo táctil: un enlace-botón de 25 px de alto se falla al pulsarlo. */
+  button.linkish { padding: 6px 0; }
+
+  /* Una tabla de nueve columnas en 390 px no se arregla dejándola desplazarse
+     de lado: se lee espachurrada y hay que descubrir el gesto. En móvil cada
+     fila pasa a ser una ficha y cada celda lleva delante su encabezado, que es
+     de donde sale el `data-label`. Un solo marcado para las dos formas. */
+  .table--stack { display: block; overflow: visible; }
+  .table--stack thead { display: none; }
+  .table--stack tbody, .table--stack tr, .table--stack td { display: block; width: 100%; }
+  .table--stack tr {
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 10px;
+  }
+  .table--stack td {
+    border: none; padding: 3px 0;
+    display: grid; grid-template-columns: 38% 1fr; gap: 10px; align-items: baseline;
+  }
+  .table--stack td::before {
+    content: attr(data-label);
+    color: var(--muted); font-size: 13px;
+  }
+  .table--stack td[data-label='']  { grid-template-columns: 1fr; margin-top: 6px; }
+  .table--stack td[data-label='']::before { content: none; }
 }
 
 .theses { margin: 18px 0; }

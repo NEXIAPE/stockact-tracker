@@ -228,7 +228,7 @@ mirar la cartera a todas horas es una forma conocida de decidir peor.
 ### Tests
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest        # 244 tests
+cd backend && ../.venv/bin/python -m pytest        # 256 tests
 ```
 
 | Archivo | Qué cubre |
@@ -237,7 +237,7 @@ cd backend && ../.venv/bin/python -m pytest        # 244 tests
 | `test_engine.py` | Derivación de estrategia, indicadores, cartera, guardianes integrados. |
 | `test_providers.py` | Los parsers de cada fuente contra payloads con la forma documentada. |
 | `test_api.py` | La API completa, incluidas regresiones de fallos reales encontrados probando. |
-| `test_auth.py` | La contraseña, las sesiones y que **ninguna** ruta de datos responda sin ella. |
+| `test_auth.py` | La contraseña, las sesiones, que **ninguna** ruta de datos responda sin ella, y que servir la interfaz no deje salir del directorio. |
 
 **No tocan la red**: los proveedores se sustituyen por dobles deterministas y
 fixtures. Eso prueba la lógica, no la disponibilidad — para la disponibilidad

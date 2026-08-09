@@ -116,5 +116,14 @@ if FRONTEND_DIST.is_dir():
 
         La aplicación es de una sola página: navegar a /cartera directamente
         tiene que funcionar igual que llegar desde dentro.
+
+        Excepción: los archivos sueltos de la raíz —el icono— se sirven tal
+        cual. Devolverles el index.html no da error visible, solo un icono roto
+        que cuesta relacionar con su causa. Se comprueba que el nombre no lleve
+        barras ni ``..`` para que esto no sirva de paseo por el disco.
         """
+        if full_path and "/" not in full_path and ".." not in full_path:
+            suelto = FRONTEND_DIST / full_path
+            if suelto.is_file():
+                return FileResponse(suelto)
         return FileResponse(FRONTEND_DIST / "index.html")

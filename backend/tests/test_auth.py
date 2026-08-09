@@ -259,3 +259,45 @@ class TestLocalStaysOpen:
         with TestClient(app) as c:
             aviso = c.get("/api/auth/status").json()["notice"]
         assert "cualquiera" in aviso.lower()
+
+
+# ---------------------------------------------------------------------------
+class TestStaticFilesDoNotOpenADoor:
+    """La interfaz se sirve desde el mismo proceso que la API.
+
+    Servir archivos desde el disco es la clase de cosa que se convierte en una
+    fuga sin que nadie lo note, así que se comprueba explícitamente. Los tests
+    se saltan si no hay interfaz compilada: en un clon recién hecho, dist/ no
+    existe (está en .gitignore) y no hay nada que servir.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _needs_dist(self):
+        from app.main import FRONTEND_DIST
+
+        if not FRONTEND_DIST.is_dir():
+            pytest.skip("Sin interfaz compilada (npm run build).")
+
+    def test_the_icon_is_served_as_an_icon(self, protected):
+        r = protected.get("/icono.svg")
+        assert r.status_code == 200
+        assert "svg" in r.headers["content-type"]
+
+    @pytest.mark.parametrize("ruta", [
+        "/../backend/app/auth.py",
+        "/..%2f..%2fbackend%2fapp%2fauth.py",
+        "/../../.env",
+        "/../package.json",
+    ])
+    def test_no_walking_out_of_the_folder(self, protected, ruta):
+        """Nunca debe devolver código ni configuración: como mucho, el index."""
+        cuerpo = protected.get(ruta).text
+        assert "pbkdf2" not in cuerpo
+        assert "APP_PASSWORD" not in cuerpo
+        assert "def " not in cuerpo
+
+    def test_an_unknown_route_still_gives_the_app(self, protected):
+        """Entrar directo a /cartera tiene que funcionar."""
+        r = protected.get("/cartera")
+        assert r.status_code == 200
+        assert "text/html" in r.headers["content-type"]

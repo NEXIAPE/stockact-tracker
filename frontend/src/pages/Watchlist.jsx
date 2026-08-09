@@ -95,23 +95,23 @@ export default function Watchlist() {
           escribirlos a mano en el código sería inventar datos. Léelos en la ficha oficial y
           regístralos: entonces aparecerán citados con la fecha en que los leíste.
         </Notice>
-        <table className="table">
+        <table className="table table--stack">
           <thead>
             <tr><th>Símbolo</th><th>Nombre</th><th>Qué te da</th><th>Tipo</th><th>Ficha oficial</th><th></th></tr>
           </thead>
           <tbody>
             {catalog.map((e) => (
               <tr key={e.ticker}>
-                <td><strong>{e.ticker}</strong></td>
-                <td>{e.name}<div className="muted small">{e.issuer}</div></td>
-                <td className="small">{e.exposure}</td>
-                <td>
+                <td data-label="Símbolo"><strong>{e.ticker}</strong></td>
+                <td data-label="Nombre">{e.name}<div className="muted small">{e.issuer}</div></td>
+                <td data-label="Qué te da" className="small">{e.exposure}</td>
+                <td data-label="Tipo">
                   <span className={`tag tag--${e.is_broad ? 'ok' : 'warn'}`}>
                     {e.is_broad ? 'amplio' : e.breadth}
                   </span>
                 </td>
-                <td><SafeLink url={e.factsheet_url}>abrir</SafeLink></td>
-                <td>
+                <td data-label="Ficha oficial"><SafeLink url={e.factsheet_url}>abrir</SafeLink></td>
+                <td data-label="">
                   <button onClick={() => act(() => api.addWatch({ ticker: e.ticker, asset_type: 'etf' }))}>
                     Seguir
                   </button>

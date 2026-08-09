@@ -59,6 +59,8 @@ export const api = {
   saveProfile: (p) => post('/profile', p),
 
   getPortfolio: () => get('/portfolio'),
+  // Solo lo guardado, sin tocar la red: sirve para pintar la pantalla ya.
+  getPortfolioLocal: () => get('/portfolio?with_prices=false'),
   saveHolding: (h) => put('/portfolio/holdings', h),
   deleteHolding: (t) => del(`/portfolio/holdings/${encodeURIComponent(t)}`),
   setCash: (amount) => put('/portfolio/cash', { amount }),

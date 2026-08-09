@@ -97,6 +97,10 @@ class Position:
     notes: str = ""
     price: Optional[DataPoint] = None
     price_error: str = ""
+    # «Todavía no se ha pedido» NO es lo mismo que «se pidió y falló». Sin esta
+    # distinción, la carga rápida —la que pinta tus datos locales al instante—
+    # tendría que anunciar que no se pudo obtener ningún precio, que es falso.
+    price_pending: bool = False
 
     @property
     def cost_basis(self) -> float:
@@ -130,6 +134,7 @@ class Position:
             "cost_basis": round(self.cost_basis, 2),
             "price": self.price.to_dict(today) if self.price else None,
             "price_error": self.price_error,
+            "price_pending": self.price_pending,
             "market_value": round(mv, 2) if mv is not None else None,
             "weight_pct": round(weight, 2) if weight is not None else None,
             "unrealized_gain": round(gain, 2) if gain is not None else None,
@@ -146,6 +151,7 @@ class PortfolioState:
     total_value: Optional[float]
     missing_prices: List[str] = field(default_factory=list)
     as_of: date = field(default_factory=date.today)
+    prices_pending: bool = False
 
     # -- métricas ----------------------------------------------------------
     def weights(self) -> Dict[str, float]:
@@ -213,8 +219,22 @@ class PortfolioState:
         return not self.positions and self.cash <= 0
 
 
-def load_portfolio(conn, today: Optional[date] = None) -> PortfolioState:
-    """Lee la cartera de la base y la valora con precios reales."""
+def load_portfolio(
+    conn, today: Optional[date] = None, with_prices: bool = True
+) -> PortfolioState:
+    """Lee la cartera de la base y, si se pide, la valora con precios reales.
+
+    ``with_prices=False`` devuelve SOLO lo que ya está guardado aquí:
+    participaciones, coste medio, efectivo, tesis. Nada de eso necesita red, y
+    sin embargo la pantalla entera esperaba a los precios para poder pintarse.
+    Medido con la red caída, eran 25 segundos en blanco antes de ver cuántas
+    participaciones tienes — un dato que estaba en el disco todo el rato.
+
+    Las posiciones vuelven marcadas como ``price_pending``, que NO es lo mismo
+    que ``price_error``: una dice que aún no se ha preguntado, la otra que se
+    preguntó y no hubo respuesta. Confundirlas sería justo el tipo de mentira
+    cómoda que esta herramienta no se permite.
+    """
     today = today or date.today()
 
     rows = conn.execute("SELECT * FROM holdings ORDER BY ticker").fetchall()
@@ -242,21 +262,24 @@ def load_portfolio(conn, today: Optional[date] = None) -> PortfolioState:
             asset_type=asset_type,
             notes=row["notes"] or "",
         )
-        try:
-            series = prices.fetch_daily(ticker)
-            bar = series.last
-            pos.price = DataPoint(
-                label="Último cierre",
-                value=bar.close,
-                unit="USD",
-                as_of=bar.day,
-                source=series.source,
-            )
-            invested += pos.shares * bar.close
-            any_price = True
-        except FetchError as exc:
-            pos.price_error = str(exc)
-            missing.append(ticker)
+        if not with_prices:
+            pos.price_pending = True
+        else:
+            try:
+                series = prices.fetch_daily(ticker)
+                bar = series.last
+                pos.price = DataPoint(
+                    label="Último cierre",
+                    value=bar.close,
+                    unit="USD",
+                    as_of=bar.day,
+                    source=series.source,
+                )
+                invested += pos.shares * bar.close
+                any_price = True
+            except FetchError as exc:
+                pos.price_error = str(exc)
+                missing.append(ticker)
         positions.append(pos)
 
     invested_value = invested if any_price or not positions else None
@@ -274,6 +297,7 @@ def load_portfolio(conn, today: Optional[date] = None) -> PortfolioState:
         total_value=total,
         missing_prices=missing,
         as_of=today,
+        prices_pending=bool(positions) and not with_prices,
     )
 
 
@@ -458,8 +482,12 @@ def portfolio_dict(
     strategy: Optional[Strategy],
 ) -> dict:
     today = state.as_of
+    # Sin precios no hay pesos, y sin pesos un desvío no significa nada. Se
+    # omiten en lugar de calcularlos sobre huecos y presentarlos como ciertos.
     deviations = (
-        check_deviations(state, profile, strategy) if profile and strategy else []
+        check_deviations(state, profile, strategy)
+        if profile and strategy and not state.prices_pending
+        else []
     )
     return {
         "as_of": today.isoformat(),
@@ -480,6 +508,7 @@ def portfolio_dict(
         },
         "individual_stock_pct": round(state.individual_stock_pct(), 2),
         "missing_prices": state.missing_prices,
+        "prices_pending": state.prices_pending,
         "data_warning": (
             "No se pudo obtener el precio de: " + ", ".join(state.missing_prices) +
             ". El valor total mostrado NO incluye esas posiciones."

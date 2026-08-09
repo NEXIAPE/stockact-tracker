@@ -19,12 +19,17 @@ router = APIRouter(prefix="/api/portfolio", tags=["cartera"])
 
 
 @router.get("")
-def get_portfolio():
-    """Tu cartera valorada con precios reales, más los desvíos frente a tu estrategia."""
+def get_portfolio(with_prices: bool = True):
+    """Tu cartera valorada con precios reales, más los desvíos frente a tu estrategia.
+
+    Con ``with_prices=false`` devuelve solo lo guardado —participaciones, coste
+    medio, efectivo— sin tocar la red. La pantalla lo pide así primero para
+    poder mostrarte lo tuyo de inmediato, y vuelve a pedirlo ya valorado.
+    """
     with get_conn() as conn:
         profile = load_profile(conn)
         strategy = derive_strategy(profile) if profile else None
-        state = load_portfolio(conn)
+        state = load_portfolio(conn, with_prices=with_prices)
         return portfolio_dict(state, profile, strategy)
 
 

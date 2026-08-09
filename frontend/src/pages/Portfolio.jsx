@@ -1,6 +1,6 @@
 /** Mi cartera: posiciones, efectivo, diversificación y bitácora. */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api.js'
 import { Datum, DatumList, ErrorBox, Loading, Money, Notice, Pct } from '../components/Data.jsx'
@@ -19,18 +19,47 @@ export default function Portfolio() {
   const [cash, setCash] = useState('')
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  // Cada llamada a load() lanza dos peticiones que compiten. El contador
+  // descarta las respuestas de una carga ya sustituida por otra más nueva.
+  const cargaActual = useRef(0)
 
+  /**
+   * Carga en dos fases.
+   *
+   * Cuántas participaciones tienes, a qué coste y cuánto efectivo te queda son
+   * datos que están en tu disco y no necesitan red. Antes la pantalla entera
+   * esperaba a los precios para pintarse: con la red caída eso medía 25
+   * segundos en blanco. Ahora lo tuyo aparece de inmediato y el valor de
+   * mercado se rellena cuando llega, o se marca como no disponible si no llega.
+   */
   const load = () => {
+    const generacion = ++cargaActual.current
+    let yaValorada = false
     setLoading(true)
-    Promise.all([api.getPortfolio(), api.listTrades(), api.theses()])
+
+    Promise.all([api.getPortfolioLocal(), api.listTrades(), api.theses()])
       .then(([p, t, th]) => {
-        setData(p)
+        if (generacion !== cargaActual.current) return
         setTrades(t.trades)
         setTheses(th)
         setCash(String(p.cash ?? 0))
+        // Si la versión valorada ya llegó, no la pisamos con la local: sería
+        // cambiar cifras reales por huecos.
+        if (!yaValorada) setData(p)
       })
       .catch((err) => (err.status === 409 ? navigate('/perfil') : setError(err)))
-      .finally(() => setLoading(false))
+      .finally(() => generacion === cargaActual.current && setLoading(false))
+
+    // Segunda fase: la misma cartera, ya valorada. Si falla, se conserva la
+    // local en vez de vaciar la pantalla.
+    api
+      .getPortfolio()
+      .then((p) => {
+        if (generacion !== cargaActual.current) return
+        yaValorada = true
+        setData(p)
+      })
+      .catch(() => {})
 
     // El rendimiento se pide aparte porque descarga el histórico del índice de
     // referencia y tarda más; no debe retrasar el resto de la pantalla.
@@ -50,8 +79,14 @@ export default function Portfolio() {
     }
   }
 
-  if (loading) return <Loading what="Valorando tu cartera con precios reales" />
+  if (loading) return <Loading what="Abriendo tu cartera" />
   if (!data) return <ErrorBox error={error} />
+
+  // Fase local: lo tuyo ya está en pantalla, los precios aún vienen de camino.
+  // «Calculando» y «no disponible» tienen que verse distinto: uno es esperar,
+  // el otro es un dato que no existe.
+  const esperando = data.prices_pending
+  const faltante = esperando ? 'calculando…' : 'no disponible'
 
   return (
     <div className="page">
@@ -67,14 +102,18 @@ export default function Portfolio() {
       <section className="card">
         <h2>Resumen</h2>
         <div className="grid">
-          <Stat label="Valor total" value={<Money value={data.total_value} />} />
-          <Stat label="Invertido" value={<Money value={data.invested_value} />} />
+          <Stat label="Valor total" value={<Money value={data.total_value} fallback={faltante} />} />
+          <Stat label="Invertido" value={<Money value={data.invested_value} fallback={faltante} />} />
           <Stat label="Efectivo" value={<Money value={data.cash} />} />
-          <Stat label="Efectivo sobre el total" value={<Pct value={data.cash_pct} />} />
-          <Stat label="En acciones" value={<Pct value={data.stocks_vs_bonds.acciones} />} />
-          <Stat label="En bonos" value={<Pct value={data.stocks_vs_bonds.bonos} />} />
+          <Stat label="Efectivo sobre el total" value={<Pct value={data.cash_pct} fallback={faltante} />} />
+          <Stat label="En acciones" value={<Pct value={data.stocks_vs_bonds.acciones} fallback={faltante} />} />
+          <Stat label="En bonos" value={<Pct value={data.stocks_vs_bonds.bonos} fallback={faltante} />} />
         </div>
-        <p className="muted small">Valorado el {data.as_of}.</p>
+        <p className="muted small">
+          {esperando
+            ? 'Lo de arriba es lo que tienes guardado. Los precios se están consultando.'
+            : `Valorado el ${data.as_of}.`}
+        </p>
       </section>
 
       {data.deviations.length > 0 && (
@@ -108,7 +147,7 @@ export default function Portfolio() {
         {!data.positions.length ? (
           <p className="muted">Todavía no registraste ninguna posición.</p>
         ) : (
-          <table className="table">
+          <table className="table table--stack">
             <thead>
               <tr>
                 <th>Símbolo</th><th>Tipo</th><th>Participaciones</th><th>Coste medio</th>
@@ -118,22 +157,39 @@ export default function Portfolio() {
             <tbody>
               {data.positions.map((p) => (
                 <tr key={p.ticker}>
-                  <td>
+                  <td data-label="Símbolo">
                     <strong>{p.ticker}</strong>
                     <div className="muted small">{p.sector}</div>
                   </td>
-                  <td>{p.asset_type === 'etf' ? (p.is_broad_etf ? 'ETF amplio' : 'ETF') : 'Acción'}</td>
-                  <td>{p.shares}</td>
-                  <td><Money value={p.avg_cost} /></td>
-                  <td>
-                    {p.price ? <Datum item={p.price} /> : <span className="muted">{p.price_error}</span>}
+                  <td data-label="Tipo">
+                    {p.asset_type === 'etf' ? (p.is_broad_etf ? 'ETF amplio' : 'ETF') : 'Acción'}
                   </td>
-                  <td><Money value={p.market_value} /></td>
-                  <td><Pct value={p.weight_pct} /></td>
-                  <td className={p.unrealized_gain >= 0 ? 'pos' : 'neg'}>
-                    <Money value={p.unrealized_gain} /> (<Pct value={p.unrealized_gain_pct} />)
+                  <td data-label="Participaciones">{p.shares}</td>
+                  <td data-label="Coste medio"><Money value={p.avg_cost} /></td>
+                  <td data-label="Precio">
+                    {p.price ? (
+                      <Datum item={p.price} />
+                    ) : (
+                      <span className="muted">
+                        {p.price_pending ? 'consultando…' : p.price_error}
+                      </span>
+                    )}
                   </td>
-                  <td>
+                  <td data-label="Valor"><Money value={p.market_value} fallback={faltante} /></td>
+                  <td data-label="Peso"><Pct value={p.weight_pct} fallback={faltante} /></td>
+                  <td
+                    data-label="Pérdida / ganancia"
+                    className={p.unrealized_gain >= 0 ? 'pos' : 'neg'}
+                  >
+                    {p.unrealized_gain === null || p.unrealized_gain === undefined ? (
+                      <span className="muted">{faltante}</span>
+                    ) : (
+                      <>
+                        <Money value={p.unrealized_gain} /> (<Pct value={p.unrealized_gain_pct} />)
+                      </>
+                    )}
+                  </td>
+                  <td data-label="">
                     <button onClick={() => act(() => api.deleteHolding(p.ticker))}>Quitar</button>
                   </td>
                 </tr>
