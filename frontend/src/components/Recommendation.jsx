@@ -12,6 +12,7 @@ import { Datum, DatumList, Money, Notice } from './Data.jsx'
 const ACTION_STYLE = {
   comprar: 'act act--buy',
   mantener: 'act act--hold',
+  recortar: 'act act--trim',
   evitar: 'act act--avoid',
   vender: 'act act--sell',
 }
@@ -170,7 +171,9 @@ function SizingBlock({ sizing, alternative = false }) {
     <div className="sizing">
       <div className="sizing__figure">
         <span className="sizing__label">
-          Tamaño sugerido{alternative && ' (alternativa: no se suma a las otras ideas)'}
+          {sizing.is_reduction
+            ? 'Exceso sobre tu tope'
+            : `Tamaño sugerido${alternative ? ' (alternativa: no se suma a las otras ideas)' : ''}`}
         </span>
         <strong>
           <Money value={sizing.amount_usd} />

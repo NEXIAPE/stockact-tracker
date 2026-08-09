@@ -27,6 +27,26 @@ Python puro), que se conserva y se integra como señal de contexto. Ver
 | **Alertas** | Noticias, movimientos fuertes, criterios cumplidos y desvíos de cartera — siempre como «vale la pena mirar». |
 | **Ajustes** | Estado de las fuentes, exportar todo, borrar todo. |
 
+### Comprar, mantener, recortar, evitar o vender
+
+La herramienta revisa también lo que YA tienes: tus posiciones entran en el
+briefing diario y se analizan como cualquier candidato. Tres decisiones que se
+mantienen deliberadamente separadas:
+
+- **Vender** exige **deterioro real del negocio o de la tendencia de fondo**.
+  Que el precio haya caído no basta: si la tesis sigue en pie, un precio más
+  bajo abarata comprar, no justifica huir. Vender por haber caído es la forma
+  más común de convertir una pérdida temporal en definitiva.
+- **Recortar** es lo que corresponde cuando algo pesa más que tu propio tope.
+  No es deshacer la posición, es devolverla a su tamaño — y suele poder
+  corregirse sin vender nada, dirigiendo los próximos aportes a otra cosa.
+- **No poder comprar más** (sin efectivo, o ya en tu cupo) **nunca** es motivo
+  para vender. Son preguntas distintas y el motor las puntúa por separado.
+
+Toda idea de vender o recortar añade sus riesgos propios: que realizar la
+operación la vuelve definitiva, su coste tributario, y lo caro que sale acertar
+dos veces al intentar volver a entrar.
+
 ### Cada recomendación trae, sin excepción
 
 Idea clara y tamaño sugerido · tesis en lenguaje simple · evidencia con números

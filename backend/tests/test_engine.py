@@ -338,3 +338,71 @@ class TestSourceFailureHonesty:
 
         result = edgar.fetch_fundamentals("VOO", "etf")
         assert "no aplica" in result.unavailable_reason.lower()
+
+
+class TestSellLogic:
+    """Cuando vender, y sobre todo cuando NO.
+
+    Regresion de un fallo grave: el marcador mezclaba «merece la pena tener
+    esto» con «conviene comprar mas ahora», asi que tener ya el peso objetivo
+    que fija la propia estrategia bastaba para recomendar VENDER un activo
+    sano. Cumplir tu plan no puede ser motivo para deshacerlo.
+    """
+
+    from app.core.recommendation import _decide  # noqa: N805
+
+    def _d(self, **over):
+        from app.core.recommendation import _decide
+
+        base = dict(asset_score=0.0, fit_score=0.0, held=True,
+                    over_cap=False, deteriorated=False)
+        base.update(over)
+        return _decide(**base)[0]
+
+    def test_holding_your_exact_target_is_never_a_sell(self):
+        # Sin margen para comprar mas (fit muy negativo) pero activo sano.
+        assert self._d(asset_score=10, fit_score=-30) == "mantener"
+
+    def test_no_cash_is_never_a_reason_to_sell(self):
+        assert self._d(asset_score=5, fit_score=-40) == "mantener"
+
+    def test_a_price_fall_alone_is_not_a_sell(self):
+        """Vender por haber caido convierte una perdida temporal en definitiva."""
+        assert self._d(asset_score=-40, deteriorated=False) == "mantener"
+
+    def test_real_deterioration_does_trigger_a_sell(self):
+        assert self._d(asset_score=-25, deteriorated=True) == "vender"
+
+    def test_mild_deterioration_alone_is_not_enough(self):
+        assert self._d(asset_score=-5, deteriorated=True) == "mantener"
+
+    def test_over_concentration_is_trim_not_sell(self):
+        assert self._d(asset_score=30, over_cap=True) == "recortar"
+
+    def test_trim_wins_even_over_deterioration(self):
+        """Si sobra peso, lo primero es devolverlo a su tamano."""
+        assert self._d(asset_score=-30, over_cap=True, deteriorated=True) == "recortar"
+
+    def test_adding_more_needs_both_merit_and_room(self):
+        assert self._d(asset_score=30, fit_score=10) == "comprar"
+        assert self._d(asset_score=30, fit_score=-5) == "mantener"
+
+    def test_a_new_candidate_needs_merit_and_room(self):
+        assert self._d(asset_score=25, fit_score=5, held=False) == "comprar"
+        assert self._d(asset_score=25, fit_score=-5, held=False) == "evitar"
+        assert self._d(asset_score=-30, fit_score=10, held=False) == "evitar"
+
+    def test_every_action_is_declared(self):
+        from app.core.recommendation import ACTIONS
+
+        for accion in ("comprar", "mantener", "recortar", "evitar", "vender"):
+            assert accion in ACTIONS
+
+
+class TestSellingCarriesItsOwnRisks:
+    def test_selling_risks_mention_tax_and_finality(self):
+        from app.core.recommendation import _selling_risks
+
+        texto = " ".join(_selling_risks()).lower()
+        assert "definitiv" in texto
+        assert "contador" in texto or "tributari" in texto

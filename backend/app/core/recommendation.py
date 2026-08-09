@@ -41,7 +41,7 @@ from .portfolio import NO_CAP, PortfolioState, cap_explanation, position_cap, se
 from .profile import Profile, Strategy, volatility_ceiling
 from .universe import guess_asset_type, is_broad_etf, lookup_etf
 
-ACTIONS = ("comprar", "mantener", "evitar", "vender")
+ACTIONS = ("comprar", "mantener", "recortar", "evitar", "vender")
 
 
 class InsufficientData(Exception):
@@ -538,16 +538,44 @@ def _sentiment(data: TickerData) -> Optional[dict]:
 # ---------------------------------------------------------------------------
 # Construcción de la recomendación
 # ---------------------------------------------------------------------------
-def _decide(score: float, held: bool, at_cap: bool) -> Tuple[str, str]:
+def _decide(
+    *,
+    asset_score: float,
+    fit_score: float,
+    held: bool,
+    over_cap: bool,
+    deteriorated: bool,
+) -> Tuple[str, str]:
+    """Decide la idea separando DOS preguntas que antes estaban mezcladas.
+
+    1. ¿Merece la pena tener esto?      -> ``asset_score`` (precio, fundamentales, perfil)
+    2. ¿Conviene comprar MÁS ahora?      -> ``fit_score``  (cupo, efectivo, sector)
+
+    Mezclarlas causaba un fallo grave: tener ya el peso objetivo que fija tu
+    propia estrategia penalizaba el marcador único lo bastante como para
+    recomendar VENDER un activo perfectamente sano. Cumplir tu plan no puede
+    ser motivo para deshacerlo.
+
+    Vender exige DETERIORO real del activo, no que haya bajado de precio. Una
+    caída no es una razón para vender: si la tesis sigue en pie, un precio más
+    bajo es lo que abarata comprar, no lo que justifica huir. Vender por haber
+    caído es la forma más común de convertir una pérdida temporal en definitiva.
+
+    Estar por encima del tope no es vender, es RECORTAR: son cosas distintas y
+    confundirlas lleva a deshacer posiciones enteras sin necesidad.
+    """
     if held:
-        if score <= -30:
-            return "vender", "Considerar vender"
-        if score >= 30 and not at_cap:
+        if over_cap:
+            return "recortar", "Considerar recortar hasta tu propio tope"
+        if deteriorated and asset_score <= -20:
+            return "vender", "Considerar vender: parece deterioro real"
+        if asset_score >= 25 and fit_score >= 0:
             return "comprar", "Considerar añadir un poco más"
         return "mantener", "Mantener lo que tienes, sin tocar nada"
-    if score >= 25 and not at_cap:
+
+    if asset_score >= 20 and fit_score >= 0:
         return "comprar", "Candidato razonable a compra"
-    if score <= -20:
+    if asset_score <= -20:
         return "evitar", "Mejor evitarlo por ahora"
     return "evitar", "Ni comprar ni descartar: déjalo en observación"
 
@@ -563,11 +591,42 @@ def _position_sizing(
     today = date.today()
     src = user_source()
 
+    if action == "recortar":
+        cap = position_cap(data.ticker, data.asset_type, strategy)
+        current = state.weights().get(data.ticker, 0.0)
+        total = state.total_value or 0.0
+        exceso_pct = max(0.0, current - cap)
+        exceso_usd = exceso_pct / 100.0 * total
+        puntos: List[Datum] = [
+            DataPoint(label=f"Peso actual de {data.ticker}", value=current, unit="%",
+                      as_of=today, source=src, precision=2),
+            DataPoint(label="Tope que fijaste", value=cap, unit="%",
+                      as_of=profile.updated_at or today, source=src, precision=1),
+            DataPoint(label="Exceso sobre tu tope", value=exceso_usd, unit="USD",
+                      as_of=today, source=src),
+        ]
+        if last_price.value > 0:
+            puntos.append(last_price)
+        return {
+            "applies": True,
+            "amount_usd": round(exceso_usd, 2),
+            "pct_of_portfolio": round(exceso_pct, 2),
+            "approx_shares": round(exceso_usd / last_price.value, 4) if last_price.value > 0 else 0.0,
+            "is_reduction": True,
+            "explanation": (
+                "Este importe es lo que SOBRA por encima del tope que tú fijaste, no una "
+                "propuesta de deshacer la posición. Y no hay ninguna prisa: dejar de aportar "
+                "a este activo y dirigir los próximos aportes a otra cosa corrige el peso "
+                "sin vender nada y sin coste fiscal."
+            ),
+            "data": [d.to_dict(today) for d in puntos],
+        }
+
     if action not in ("comprar",):
         return {
             "applies": False,
             "explanation": (
-                "No procede sugerir tamaño de posición porque la idea no es comprar."
+                "No procede sugerir un importe: la idea no es ni comprar ni recortar."
             ),
             "data": [],
         }
@@ -743,6 +802,19 @@ def _build_risks(
     return risks
 
 
+def _selling_risks() -> List[str]:
+    """Riesgos propios de DESHACER una posición, que son distintos de los de tenerla."""
+    return [
+        "Vender realiza la ganancia o la pérdida: deja de ser algo que puede recuperarse y "
+        "pasa a ser definitivo.",
+        "Al vender con ganancia hay impacto tributario que esta herramienta no calcula. En "
+        "Perú, la renta de fuente extranjera tiene su propio tratamiento: consúltalo con un "
+        "contador antes de deshacer nada grande.",
+        "Volver a entrar después suele costar más caro de lo que uno espera, porque exige "
+        "acertar dos veces: cuándo salir y cuándo volver.",
+    ]
+
+
 def _build_counter_argument(data: TickerData, action: str, score: float) -> str:
     """El contra-caso más fuerte. Obligatorio: sin esto no se muestra nada."""
     trend = ind.trend_label(data.series)
@@ -777,6 +849,17 @@ def _build_counter_argument(data: TickerData, action: str, score: float) -> str:
             "impacientes se rindieran. Vender también tiene coste fiscal y de oportunidad, "
             "y ninguna de las señales que veo distingue un deterioro permanente de un mal "
             "momento pasajero."
+        )
+
+    if action == "recortar":
+        return (
+            "El argumento más fuerte en contra de recortar es que vender parte de algo que va "
+            "bien, sólo porque ha crecido, es cortar precisamente a los ganadores: buena parte "
+            "de la rentabilidad de una cartera a largo plazo suele venir de unas pocas "
+            "posiciones a las que se dejó crecer. Además recortar realiza la ganancia y con "
+            "ella su coste fiscal. El tope existe para que ninguna equivocación te arruine el "
+            "plan, no porque crecer sea malo; si el peso te resulta cómodo y entiendes el "
+            "riesgo, subir tu propio tope es una decisión tan legítima como recortar."
         )
 
     if action == "mantener":
@@ -936,23 +1019,41 @@ def analyze(
     fit_s, fit_note, fit_pts = _score_portfolio_fit(data, state, profile, strategy)
     prof_s, prof_note, prof_pts = _score_profile_fit(data, profile)
 
-    score = trend_s + vol_s + dd_s + fund_s + fit_s + prof_s
+    # MÉRITO DEL ACTIVO: ¿merece la pena tenerlo? No incluye el encaje con la
+    # cartera, porque tener ya tu cupo no dice nada sobre la calidad del activo.
+    asset_score = trend_s + vol_s + dd_s + fund_s + prof_s
+    # IDONEIDAD PARA COMPRAR MÁS AHORA: cupo, efectivo, solapamiento sectorial.
+    fit_score = fit_s
+    score = asset_score + fit_score
 
     breakdown = [
         {"factor": "Tendencia de precio", "points": round(trend_s, 1), "note": trend_note},
         {"factor": "Volatilidad frente a tu perfil", "points": round(vol_s, 1), "note": vol_note},
         {"factor": "Posición frente a máximos", "points": round(dd_s, 1), "note": dd_note},
         {"factor": "Fundamentales", "points": round(fund_s, 1), "note": fund_note},
-        {"factor": "Encaje con tu cartera", "points": round(fit_s, 1), "note": fit_note},
         {"factor": "Encaje con tu perfil", "points": round(prof_s, 1), "note": prof_note},
+        {"factor": "Encaje con tu cartera (sólo afecta a comprar más)",
+         "points": round(fit_s, 1), "note": fit_note},
     ]
 
     cap = position_cap(data.ticker, data.asset_type, strategy)
     current_weight = state.weights().get(data.ticker, 0.0)
     held = current_weight > 0
-    at_cap = current_weight >= cap
+    # Por ENCIMA del tope, no simplemente en él: cumplir tu objetivo exacto no
+    # puede considerarse un exceso que haya que corregir.
+    over_cap = cap < NO_CAP and current_weight > cap * 1.05
 
-    action, action_label = _decide(score, held, at_cap)
+    # Deterioro REAL: el negocio o la tendencia de fondo empeoran. Una caída de
+    # precio por sí sola no cuenta, por muy grande que sea.
+    deteriorated = fund_s <= -10 or (trend_s <= -15 and vol_s < 0)
+
+    action, action_label = _decide(
+        asset_score=asset_score,
+        fit_score=fit_score,
+        held=held,
+        over_cap=over_cap,
+        deteriorated=deteriorated,
+    )
 
     # Freno de principiante: no proponer comprar una acción individual cuando
     # la cartera ya está muy cargada de ellas.
@@ -1043,6 +1144,11 @@ def analyze(
             f"comprar más ni para vender: lo sensato es dejarlo estar y seguir con tus aportes "
             f"según el plan."
         ),
+        "recortar": (
+            f"{data.ticker} es {what_is}. El activo en sí no tiene por qué estar mal: lo que "
+            f"pasa es que pesa más en tu cartera de lo que tú mismo decidiste permitir. "
+            f"Recortar no es deshacer la posición, es devolverla a su tamaño."
+        ),
         "vender": (
             f"{data.ticker} es {what_is}, y varias señales apuntan a que ha dejado de encajar "
             f"con tu plan. Vale la pena revisar si sigue teniendo un sitio en tu cartera, sin "
@@ -1057,6 +1163,8 @@ def analyze(
     thesis = thesis_map[action]
 
     risks = _build_risks(data, profile, state, strategy)
+    if action in ("vender", "recortar"):
+        risks = _selling_risks() + risks
     counter = _build_counter_argument(data, action, score)
     conf_level, conf_basis, gaps = _confidence(data, today)
     warnings = _beginner_warnings(data, profile, state, strategy, action)

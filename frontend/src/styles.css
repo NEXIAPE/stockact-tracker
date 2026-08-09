@@ -11,6 +11,7 @@
   --accent: #2f5d50;
   --buy: #2f5d50;
   --hold: #6b6355;
+  --trim: #8a7430;
   --avoid: #7a5c3e;
   --sell: #8a3f34;
   --warn-bg: #fdf6e7;
@@ -141,6 +142,7 @@ button.linkish {
 .act { padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 14px; color: #fff; background: var(--hold); white-space: nowrap; }
 .act--buy { background: var(--buy); }
 .act--hold { background: var(--hold); }
+.act--trim { background: var(--trim); }
 .act--avoid { background: var(--avoid); }
 .act--sell { background: var(--sell); }
 .tag { display: inline-block; font-size: 12px; padding: 1px 7px; border-radius: 10px; background: var(--calm-bg); color: var(--muted); }
