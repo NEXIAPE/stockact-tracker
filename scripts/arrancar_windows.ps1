@@ -69,10 +69,23 @@ if ($listo) {
 # --- Interfaz --------------------------------------------------------------
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
     Write-Host ""
-    Write-Host "Node.js no esta instalado, asi que no puedo abrir la interfaz web." -ForegroundColor Yellow
-    Write-Host "La API si funciona: http://127.0.0.1:8000/docs" -ForegroundColor Cyan
-    Write-Host "Y el briefing en texto tambien:" -ForegroundColor Cyan
-    Write-Host "    .venv\Scripts\python.exe backend\daily.py" -ForegroundColor Cyan
+    Write-Host ("=" * 70) -ForegroundColor Yellow
+    Write-Host "FALTA NODE.JS - por eso no se abre ninguna ventana" -ForegroundColor Yellow
+    Write-Host ("=" * 70) -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  El motor SI esta funcionando, pero la interfaz web necesita Node.js."
+    Write-Host ""
+    Write-Host "  1. Descarga la version LTS desde https://nodejs.org/" -ForegroundColor Cyan
+    Write-Host "  2. Instala con las opciones por defecto." -ForegroundColor Cyan
+    Write-Host "  3. CIERRA PowerShell por completo y vuelve a abrirlo." -ForegroundColor Cyan
+    Write-Host "     (si no, Windows no ve el programa recien instalado)" -ForegroundColor DarkGray
+    Write-Host "  4. Comprueba con: node --version" -ForegroundColor Cyan
+    Write-Host "  5. Vuelve a ejecutar este mismo script." -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  Mientras tanto puedes usar la API en http://127.0.0.1:8000/docs"
+    Write-Host "  y el briefing en texto con:"
+    Write-Host "      .venv\Scripts\python.exe backend\daily.py" -ForegroundColor Cyan
+    Write-Host ""
     exit 0
 }
 

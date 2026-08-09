@@ -173,12 +173,24 @@ $DiagOk = ($LASTEXITCODE -eq 0)
 # --- Resumen ---------------------------------------------------------------
 Titulo "RESUMEN"
 
-if ($DiagOk) {
+if ($DiagOk -and $NodeOk) {
     Bien "Todo listo."
     Write-Host ""
     Write-Host "  Siguiente paso: arranca la herramienta con" -ForegroundColor White
     Write-Host ""
     Write-Host "      powershell -ExecutionPolicy Bypass -File scripts\arrancar_windows.ps1" -ForegroundColor Cyan
+    Write-Host ""
+} elseif ($DiagOk -and -not $NodeOk) {
+    Aviso "Las fuentes de datos funcionan, pero FALTA NODE.JS."
+    Write-Host ""
+    Write-Host "  Sin Node no hay interfaz web: al arrancar no se abrira ninguna ventana." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  1. Descarga la version LTS desde https://nodejs.org/" -ForegroundColor Cyan
+    Write-Host "  2. Instala con las opciones por defecto." -ForegroundColor Cyan
+    Write-Host "  3. CIERRA PowerShell por completo y vuelve a abrirlo." -ForegroundColor Cyan
+    Write-Host "     (si no, Windows no ve el programa recien instalado)" -ForegroundColor DarkGray
+    Write-Host "  4. Comprueba con: node --version" -ForegroundColor Cyan
+    Write-Host "  5. Arranca con: powershell -ExecutionPolicy Bypass -File scripts\arrancar_windows.ps1" -ForegroundColor Cyan
     Write-Host ""
 } else {
     Mal "Alguna fuente obligatoria no respondio."
