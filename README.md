@@ -291,14 +291,60 @@ está `diagnose.py`.
 ## Publicarla en internet, con contraseña
 
 En tu ordenador la herramienta arranca **abierta**, y ahí está bien: nadie más
-llega a `127.0.0.1`. En cuanto la pones en una dirección pública eso deja de ser
-cierto, así que hay una capa de acceso. Sin ella, cualquiera con el enlace vería
-tu cartera entera y podría borrarla.
+llega a `127.0.0.1`. En cuanto la pones en una dirección a la que llega otra
+cosa, eso deja de ser cierto.
 
-Sigue siendo de **solo lectura frente al mercado**: publicarla no añade ninguna
-ruta que envíe órdenes a un bróker. Lo que se protege son tus datos.
+Hay **dos caminos**, y para un solo usuario el primero es mejor y además gratis.
 
-### 1. Pon tu contraseña
+---
+
+### Camino A (recomendado): tu red privada, con Tailscale
+
+Accedes desde el móvil, desde donde estés, con una dirección `https` estable.
+**No se publica en internet**: sólo la ven los dispositivos que tú metas en tu
+Tailscale. Y lo que más importa, **tus datos no se copian a ningún servidor de
+nadie**: el archivo SQLite se queda en tu disco.
+
+El plan personal de Tailscale es gratuito. El motor escucha **sólo en
+`127.0.0.1`**, así que ni siquiera queda expuesto a tu red local: el único que
+llega hasta él es el propio Tailscale, corriendo en esa misma máquina.
+
+1. Pon tu contraseña (te la pide sin mostrarla, sólo guarda el hash):
+
+   ```powershell
+   .venv\Scripts\python.exe backend\set_password.py
+   ```
+
+2. Instala [Tailscale](https://tailscale.com/download) en el ordenador y en el
+   móvil, con la **misma cuenta**. En el panel, activa los certificados HTTPS
+   (`login.tailscale.com/admin/dns`, sección *HTTPS Certificates*).
+
+3. Arranca:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scripts\publicar_tailscale.ps1
+   ```
+
+El script **se niega a publicar si no hay contraseña configurada**. Esa
+comprobación es un cerrojo, no un aviso: Tailscale limita quién llega, pero un
+móvil perdido y desbloqueado se salta esa capa entera.
+
+Para dejar de publicarla: `tailscale serve reset`.
+
+**Lo que cuesta:** el ordenador tiene que estar encendido cuando quieras mirar.
+En la práctica no añade nada nuevo — la base de datos ya vive ahí y el briefing
+diario ya se ejecuta ahí.
+
+---
+
+### Camino B: un servidor en internet, con Docker
+
+Tiene sentido si necesitas que funcione con el ordenador apagado. Cuesta dinero:
+Fly.io retiró su plan gratuito para cuentas nuevas y un despliegue mínimo real
+ronda los 7–10 USD/mes; en Render el plan gratuito **no tiene disco
+persistente**, así que perderías los datos.
+
+#### 1. Pon tu contraseña
 
 ```bash
 .venv/bin/python backend/set_password.py
@@ -313,7 +359,7 @@ sustituirla, y eso es a propósito.
 Usa una larga. Un gestor de contraseñas y no volver a pensar en ella es mejor
 que algo que puedas teclear de memoria.
 
-### 2. Construye la imagen
+#### 2. Construye la imagen
 
 ```bash
 docker build -t inversion-personal .
@@ -323,7 +369,7 @@ Compila la interfaz y la sirve **desde el mismo proceso** que la API. Eso no es
 un detalle de comodidad: con un solo origen, la cookie de sesión nunca cruza
 dominios y `SameSite=Strict` puede protegerla de verdad.
 
-### 3. Arráncala
+#### 3. Arráncala
 
 ```bash
 docker run -d -p 8000:8000 \
@@ -333,7 +379,7 @@ docker run -d -p 8000:8000 \
   inversion-personal
 ```
 
-### Tres cosas que hay que hacer bien
+#### Tres cosas que hay que hacer bien
 
 **HTTPS, no negociable.** La cookie de sesión viaja marcada `Secure`, así que
 por HTTP normal el navegador ni la envía y no podrás entrar. Eso es la
@@ -350,7 +396,7 @@ tus tesis. Si tu plataforma ofrece disco persistente, móntalo en `/data`.
 en `.gitignore` y así debe seguir. En Fly.io es `fly secrets set`, en Railway y
 Render el panel de variables de entorno.
 
-### Qué protege y qué no
+### Qué protege la contraseña, en cualquiera de los dos caminos
 
 | | |
 |---|---|
