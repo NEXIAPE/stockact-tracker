@@ -273,14 +273,24 @@ class TestConfigFile:
     @pytest.fixture(autouse=True)
     def _restore_config(self, monkeypatch):
         """Recargar el modulo de configuracion es global: si no se deshace, el
-        .env temporal de un test contamina a todos los demas."""
+        .env temporal de un test contamina a todos los demas.
+
+        Y hay que devolverlo al .env FALSO del conftest, no simplemente borrar
+        la variable. Borrarla hacia que la recarga apuntara al .env REAL de
+        quien ejecutara la suite, y como esta clase va antes que
+        test_providers, todos los tests posteriores pasaban a leer su
+        configuracion personal. Ese era el origen de dos fallos que solo
+        aparecian en la maquina del usuario: su .env fija el orden de
+        proveedores y los tests dan por hecho el de por defecto.
+        """
         yield
         import importlib
 
+        import conftest
         from app import config as config_mod
         from app.providers import prices
 
-        monkeypatch.delenv("INVEST_ENV_FILE", raising=False)
+        monkeypatch.setenv("INVEST_ENV_FILE", str(conftest.ENV_FILE_DE_MENTIRA))
         importlib.reload(config_mod)
         importlib.reload(prices)
 

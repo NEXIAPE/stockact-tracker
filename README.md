@@ -228,7 +228,7 @@ mirar la cartera a todas horas es una forma conocida de decidir peor.
 ### Tests
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest        # 256 tests
+cd backend && ../.venv/bin/python -m pytest        # 259 tests
 ```
 
 | Archivo | Qué cubre |
@@ -237,7 +237,12 @@ cd backend && ../.venv/bin/python -m pytest        # 256 tests
 | `test_engine.py` | Derivación de estrategia, indicadores, cartera, guardianes integrados. |
 | `test_providers.py` | Los parsers de cada fuente contra payloads con la forma documentada. |
 | `test_api.py` | La API completa, incluidas regresiones de fallos reales encontrados probando. |
+| `test_suite_isolation.py` | Que la propia suite siga aislada de la configuración de quien la ejecuta. |
 | `test_auth.py` | La contraseña, las sesiones, que **ninguna** ruta de datos responda sin ella, y que servir la interfaz no deje salir del directorio. |
+
+Los tests **no leen tu `.env`** ni las variables de entorno de tu máquina
+(`backend/conftest.py`). Un test que pasa en un ordenador y falla en otro por la
+configuración personal de cada uno no mide el código, mide el ordenador.
 
 **No tocan la red**: los proveedores se sustituyen por dobles deterministas y
 fixtures. Eso prueba la lógica, no la disponibilidad — para la disponibilidad
