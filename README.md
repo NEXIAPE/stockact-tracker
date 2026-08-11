@@ -56,6 +56,23 @@ herramienta que cada mañana parece tener algo urgente acaba enseñándote a ope
 de más. Cuando sí hay algo, se lista ordenado por lo que más suele importar, con
 el enlace a donde mirarlo, y se dice explícitamente que no pide que actúes hoy.
 
+### Las ideas NO son un descubrimiento diario
+
+Verás casi siempre **los mismos símbolos**. Los candidatos salen de una lista
+corta y fija: tu watchlist, seis ETFs amplios (VT, VTI, VOO, VXUS, BND, AGG) y
+lo que ya tienes, para revisar si sigue encajando. Máximo ocho, se muestran
+hasta cuatro.
+
+Lo que cambia cada día es **el veredicto, no el reparto**: el mismo fondo puede
+pasar de «mantener» a «comprar» porque bajó de precio, porque te entró efectivo
+o porque tu peso se desvió.
+
+Es deliberado. No hay ningún buscador de «acciones de moda», porque proponer lo
+que más sube es la forma más rápida de que compres caro, y una herramienta que
+cada mañana presenta algo nuevo y emocionante enseña a operar de más. **La
+palanca eres tú**: si quieres ver otra cosa, añádela a tu watchlist y entra en
+la rotación.
+
 ### Tu tesis: la única señal de venta que vale
 
 Al registrar una posición anotas **por qué la compraste** y **qué te haría dejar
@@ -228,7 +245,7 @@ mirar la cartera a todas horas es una forma conocida de decidir peor.
 ### Tests
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest        # 259 tests
+cd backend && ../.venv/bin/python -m pytest        # 266 tests
 ```
 
 | Archivo | Qué cubre |

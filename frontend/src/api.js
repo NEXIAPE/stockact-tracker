@@ -83,7 +83,8 @@ export const api = {
   priceSeries: (ticker, days = 365) =>
     get(`/prices/${encodeURIComponent(ticker)}?days=${days}`),
 
-  briefing: (includeIdeas = true) => get(`/briefing?include_ideas=${includeIdeas}`),
+  briefing: (includeIdeas = true, withPrices = true) =>
+    get(`/briefing?include_ideas=${includeIdeas}&with_prices=${withPrices}`),
   alerts: (onlyUnread = false) => get(`/alerts?only_unread=${onlyUnread}`),
   refreshAlerts: () => post('/alerts/refresh'),
   markRead: (id) => post(`/alerts/${id}/read`),

@@ -1,6 +1,6 @@
 /** Briefing diario: lo primero que ves al abrir. */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api.js'
 import { DatumList, ErrorBox, Loading, Money, Notice, Pct } from '../components/Data.jsx'
@@ -13,38 +13,68 @@ export default function Briefing() {
   const [ideaProblems, setIdeaProblems] = useState([])
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  // Tres peticiones compiten por pintar. El contador descarta las respuestas
+  // de una carga que ya fue sustituida por otra más nueva.
+  const cargaActual = useRef(0)
 
-  // El briefing se carga en dos tiempos a proposito. Lo tuyo — cartera, alertas
-  // y desvios — depende de pocas consultas y aparece enseguida. Las ideas exigen
-  // analizar varios candidatos enteros (precio, fundamentales, noticias) y pueden
-  // tardar bastante la primera vez. Bloquear toda la pagina por ellas dejaba una
-  // pestana en blanco durante casi un minuto sin explicar nada.
+  // El briefing se carga en TRES tiempos, del dato más barato al más caro.
+  //
+  //   1. Local: alertas sin leer y tesis pendientes. Están en tu disco, no
+  //      necesitan red y aparecen al instante.
+  //   2. Valorado: la cartera con precios reales y los desvíos frente a tu
+  //      plan. Medido con la red caída, esto tardaba 27 segundos, y hasta
+  //      entonces la pestaña estaba en blanco.
+  //   3. Ideas: analizan varios candidatos enteros (precio, fundamentales,
+  //      noticias) y son lo que más tarda.
+  //
+  // Mientras falta la fase 2, la pantalla NO dice «hoy no hay nada que hacer»:
+  // sin precios no se han podido comprobar los desvíos, y afirmar que no hay
+  // nada habiendo mirado la mitad sería mentir para parecer rápido.
   const load = () => {
+    const generacion = ++cargaActual.current
+    let yaValorado = false
     setLoading(true)
     setIdeas(null)
     setIdeaProblems([])
 
+    const fallo = (err) => {
+      if (generacion !== cargaActual.current) return
+      if (err.status === 409) navigate('/perfil')
+      else setError(err)
+    }
+
     api
-      .briefing(false)
-      .then(setData)
-      .catch((err) => {
-        if (err.status === 409) navigate('/perfil')
-        else setError(err)
+      .briefing(false, false)
+      .then((d) => {
+        if (generacion !== cargaActual.current || yaValorado) return
+        setData(d)
       })
-      .finally(() => setLoading(false))
+      .catch(fallo)
+      .finally(() => generacion === cargaActual.current && setLoading(false))
+
+    api
+      .briefing(false, true)
+      .then((d) => {
+        if (generacion !== cargaActual.current) return
+        yaValorado = true
+        setData(d)
+        setLoading(false)
+      })
+      .catch(fallo)
 
     api
       .ideas(3)
       .then((r) => {
+        if (generacion !== cargaActual.current) return
         setIdeas(r.ideas)
         setIdeaProblems(r.problems || [])
       })
-      .catch(() => setIdeas([]))
+      .catch(() => generacion === cargaActual.current && setIdeas([]))
   }
 
   useEffect(load, [])
 
-  if (loading) return <Loading what="Preparando tu briefing (consultando precios reales)" />
+  if (loading) return <Loading what="Abriendo tu briefing" />
   if (error) return <ErrorBox error={error} />
   if (!data) return null
 
@@ -66,8 +96,10 @@ export default function Briefing() {
         <h2>Cómo va tu cartera</h2>
         {p.total_value === null ? (
           <p className="muted">
-            No se pudo valorar tu cartera porque faltan precios. No muestro un total parcial
-            haciéndolo pasar por completo.
+            {p.prices_pending
+              ? 'Consultando los precios para valorar tu cartera…'
+              : 'No se pudo valorar tu cartera porque faltan precios. No muestro un total ' +
+                'parcial haciéndolo pasar por completo.'}
           </p>
         ) : (
           <div className="grid">
@@ -188,10 +220,13 @@ export default function Briefing() {
 function TodayCard({ today }) {
   if (!today) return null
 
+  // «comprobando» comparte el gris neutro de «empezar»: no es una buena
+  // noticia ni un aviso, es que todavía no se sabe. Pintarlo verde seria
+  // insinuar calma antes de haber mirado.
   const clase =
     today.status === 'nada_que_hacer'
       ? 'today today--calm'
-      : today.status === 'empezar'
+      : today.status === 'empezar' || today.status === 'comprobando'
         ? 'today today--start'
         : 'today today--look'
 

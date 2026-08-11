@@ -13,10 +13,19 @@ router = APIRouter(prefix="/api", tags=["briefing"])
 
 
 @router.get("/briefing")
-def daily_briefing(include_ideas: bool = Query(default=True)):
-    """Resumen priorizado del día: cartera, alertas, desvíos e ideas."""
+def daily_briefing(
+    include_ideas: bool = Query(default=True),
+    with_prices: bool = Query(default=True),
+):
+    """Resumen priorizado del día: cartera, alertas, desvíos e ideas.
+
+    Se pide en tres tandas para que la pantalla no se quede en blanco:
+    ``with_prices=false`` devuelve al instante lo que ya está guardado (alertas
+    sin leer, tesis pendientes), luego la versión valorada, y las ideas al
+    final porque analizan varios símbolos y son lo que más tarda.
+    """
     with get_conn() as conn:
-        profile, strategy, state = context(conn)
+        profile, strategy, state = context(conn, with_prices=with_prices)
         return build(conn, profile, strategy, state, include_ideas=include_ideas)
 
 

@@ -98,6 +98,32 @@ def _today_summary(
             "where": "/cartera",
         })
 
+    # AQUÍ ESTÁ LO DELICADO DE LA CARGA EN DOS FASES.
+    #
+    # Sin precios no se han podido comprobar los desvíos, que son la mitad de lo
+    # que responde esta pregunta. Decir «hoy no hay nada que hacer» habiendo
+    # mirado sólo la mitad no es ser rápido: es afirmar algo que no se sabe. Y
+    # es justo la afirmación en la que esta pantalla pide que confíes para no
+    # tener que leer el resto.
+    #
+    # Así que mientras falten los precios NUNCA se cierra la respuesta. Se dice
+    # lo que ya se sabe y se dice que falta lo demás.
+    if state.prices_pending:
+        return {
+            "status": "comprobando",
+            "headline": (
+                "Estoy mirando tu cartera."
+                if not items
+                else "Hay algo que vale la pena mirar cuando tengas un rato."
+            ),
+            "explanation": (
+                "Falta consultar los precios para revisar si tu cartera se desvió de tu "
+                "plan, así que todavía no puedo decirte si hay algo más. Lo de aquí ya "
+                "está comprobado."
+            ),
+            "items": items[:4],
+        }
+
     if not items:
         return {
             "status": "nada_que_hacer",
@@ -140,7 +166,8 @@ def build(
     today = today or date.today()
 
     unread = list_alerts(conn, only_unread=True, limit=20)
-    deviations = check_deviations(state, profile, strategy)
+    # Sin precios no hay pesos, y sin pesos un desvío no significa nada.
+    deviations = [] if state.prices_pending else check_deviations(state, profile, strategy)
 
     # Los desvios de cartera generan alertas, asi que sin esto la misma
     # informacion aparecia DOS VECES seguidas en la pantalla, con las mismas
@@ -190,10 +217,15 @@ def build(
     last_run = conn.execute(
         "SELECT ran_at FROM runs WHERE kind = 'briefing' ORDER BY id DESC LIMIT 1"
     ).fetchone()
-    conn.execute("INSERT INTO runs (kind, ran_at) VALUES (?,?)", ("briefing", now_iso()))
+    # La fase local no cuenta como «briefing ejecutado»: no llegó a revisar la
+    # cartera. Anotarla dejaría en la bitácora tres ejecuciones por cada vez que
+    # abres la pantalla, y una de ellas a medias.
+    if not state.prices_pending:
+        conn.execute("INSERT INTO runs (kind, ran_at) VALUES (?,?)", ("briefing", now_iso()))
 
     return {
         "date": today.isoformat(),
+        "prices_pending": state.prices_pending,
         "today": _today_summary(state, unread, deviations, thesis_notes),
         "headline": _headline(state, len(unread), len(deviations)),
         "portfolio": portfolio_dict(state, profile, strategy),

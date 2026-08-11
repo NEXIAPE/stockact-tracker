@@ -40,9 +40,11 @@ def require_profile(conn) -> Tuple[Profile, Strategy]:
     return profile, derive_strategy(profile)
 
 
-def context(conn, today: Optional[date] = None) -> Tuple[Profile, Strategy, PortfolioState]:
+def context(
+    conn, today: Optional[date] = None, with_prices: bool = True
+) -> Tuple[Profile, Strategy, PortfolioState]:
     profile, strategy = require_profile(conn)
-    state = load_portfolio(conn, today=today)
+    state = load_portfolio(conn, today=today, with_prices=with_prices)
     return profile, strategy, state
 
 

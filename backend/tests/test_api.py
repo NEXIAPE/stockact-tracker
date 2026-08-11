@@ -703,3 +703,91 @@ class TestPortfolioLoadsWithoutTheNetwork:
         assert d["positions"][0]["price_pending"] is False
         assert d["positions"][0]["market_value"] is not None
         assert d["total_value"] is not None
+
+
+# ---------------------------------------------------------------------------
+class TestBriefingLoadsWithoutTheNetwork:
+    """El briefing tampoco puede quedarse en blanco esperando a la red.
+
+    Pero aquí hay una trampa que no existía en la cartera: esta pantalla
+    responde «¿hay algo que hacer hoy?», y esa respuesta es en la que el
+    usuario confía para no leer el resto. Darla a medias es peor que tardar.
+    """
+
+    def _setup(self, client):
+        client.post("/api/profile", json=PROFILE)
+        client.put("/api/portfolio/holdings", json={
+            "ticker": "AAPL", "shares": 100, "avg_cost": 1, "asset_type": "accion"})
+
+    def test_what_is_already_known_comes_back_at_once(self, client):
+        self._setup(client)
+        d = client.get("/api/briefing?include_ideas=false&with_prices=false").json()
+        assert d["prices_pending"] is True
+        # Las alertas y las tesis están guardadas: no necesitan red.
+        assert "unread_alerts" in d
+        assert d["portfolio"]["positions"][0]["shares"] == 100
+
+    def test_it_does_not_touch_the_network(self, client, monkeypatch):
+        self._setup(client)
+
+        def prohibido(*a, **k):
+            raise AssertionError("La fase local del briefing pidió un precio.")
+
+        monkeypatch.setattr("app.core.portfolio.prices.fetch_daily", prohibido)
+        r = client.get("/api/briefing?include_ideas=false&with_prices=false")
+        assert r.status_code == 200
+
+    def test_it_never_says_there_is_nothing_to_do_before_checking(self, client):
+        """LA REGLA DURA DE ESTA PANTALLA.
+
+        Sin precios no se han podido comprobar los desvíos, que son la mitad de
+        lo que responde la pregunta. Decir «hoy no hay nada que hacer» habiendo
+        mirado la mitad no es ser rápido: es afirmar algo que no se sabe.
+        """
+        self._setup(client)   # sin alertas ni nada pendiente: el caso peligroso
+        hoy = client.get(
+            "/api/briefing?include_ideas=false&with_prices=false"
+        ).json()["today"]
+
+        assert hoy["status"] == "comprobando"
+        assert "nada que hacer" not in hoy["headline"].lower()
+        assert "nada que hacer" not in hoy["explanation"].lower()
+        # Y debe decir QUÉ le falta, no sólo callarse.
+        assert "precio" in hoy["explanation"].lower()
+
+    def test_once_valued_it_answers_the_question_for_real(self, client):
+        self._setup(client)
+        hoy = client.get("/api/briefing?include_ideas=false").json()["today"]
+        assert hoy["status"] in ("nada_que_hacer", "algo_que_mirar")
+
+    def test_no_deviations_are_invented_without_weights(self, client):
+        self._setup(client)
+        d = client.get("/api/briefing?include_ideas=false&with_prices=false").json()
+        assert d["deviations"] == []
+
+    def test_the_local_phase_is_not_logged_as_a_run(self, client):
+        """Tres peticiones por pantalla no pueden ser tres briefings en la bitácora."""
+        self._setup(client)
+        from app.db import get_conn
+
+        def ejecuciones():
+            with get_conn() as conn:
+                return conn.execute(
+                    "SELECT COUNT(*) c FROM runs WHERE kind = 'briefing'"
+                ).fetchone()["c"]
+
+        antes = ejecuciones()
+        client.get("/api/briefing?include_ideas=false&with_prices=false")
+        assert ejecuciones() == antes, "La fase local no revisó la cartera."
+        client.get("/api/briefing?include_ideas=false")
+        assert ejecuciones() == antes + 1
+
+    def test_the_anti_fomo_guard_also_covers_the_new_state(self, client):
+        from app.core.guards import assert_no_pressure_language
+
+        self._setup(client)
+        hoy = client.get(
+            "/api/briefing?include_ideas=false&with_prices=false"
+        ).json()["today"]
+        assert_no_pressure_language(hoy["headline"], "titular comprobando")
+        assert_no_pressure_language(hoy["explanation"], "explicación comprobando")
