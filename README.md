@@ -343,6 +343,22 @@ comprobación es un cerrojo, no un aviso: Tailscale limita quién llega, pero un
 móvil perdido y desbloqueado se salta esa capa entera.
 
 Para dejar de publicarla: `tailscale serve reset`.
+Para ver qué hay publicado: `tailscale serve status`.
+
+#### Tres cosas que se olvidan a las dos semanas
+
+**La ventana del MOTOR tiene que seguir abierta.** Si la cierras, la dirección
+sigue existiendo pero no responde. No se ha roto nada: apagaste el motor.
+
+**Al reiniciar el ordenador hay que volver a lanzar el script.** La
+configuración del túnel sobrevive al reinicio; el motor no. El síntoma engaña,
+porque la URL carga y da error como si estuviera estropeada.
+
+**No mezcles los dos scripts.** `arrancar_windows.ps1` es el modo desarrollo: la
+interfaz va en el puerto 5173, que Tailscale no publica. Para el acceso desde el
+móvil usa siempre `publicar_tailscale.ps1`, que compila la interfaz de verdad.
+Si tocas el código y sólo lanzas el de arranque, desde el móvil seguirás viendo
+la versión anterior.
 
 **Lo que cuesta:** el ordenador tiene que estar encendido cuando quieras mirar.
 En la práctica no añade nada nuevo — la base de datos ya vive ahí y el briefing
