@@ -2,7 +2,19 @@
    Una interfaz que grita empuja a operar, y operar de más es justo lo que esta
    herramienta intenta evitar. */
 
+/* --- PALETA -----------------------------------------------------------------
+   Un solo bloque por tema, sin duplicar: un script diminuto en index.html fija
+   data-theme antes de pintar, resolviendo "auto" con la preferencia del
+   sistema. Duplicar la paleta en un @media y otra vez en un selector es la vía
+   rápida a que las dos se desincronicen.
+
+   --on-fill existe por un conflicto real: --accent es a la vez color de TEXTO
+   de los enlaces y FONDO de los botones sólidos. En claro ambos usos quieren un
+   verde oscuro; en oscuro el enlace necesita un verde CLARO, y entonces el
+   texto de encima del botón ya no puede ser blanco. Un token para "lo que va
+   encima de un relleno" resuelve los dos casos sin excepciones sueltas. */
 :root {
+  color-scheme: light;
   --bg: #fbfaf8;
   --card: #ffffff;
   --ink: #23201c;
@@ -14,6 +26,7 @@
   --trim: #8a7430;
   --avoid: #7a5c3e;
   --sell: #8a3f34;
+  --on-fill: #ffffff;          /* texto sobre accent / buy / sell / act */
   --warn-bg: #fdf6e7;
   --warn-line: #e6d3a3;
   --err-bg: #fbeeec;
@@ -22,6 +35,37 @@
   --calm-bg: #f2f4f7;
   --pos: #2f5d50;
   --neg: #8a3f34;
+  --chart-area: .07;
+}
+
+/* Oscuro. Neutros cálidos, no azulados, para que sea la misma interfaz con la
+   luz bajada y no otra distinta. Los rellenos se aclaran y el texto de encima
+   pasa a ser casi negro: al invertir el fondo, mantener texto blanco sobre un
+   verde claro daría un contraste peor que el de partida. */
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #171613;
+  --card: #201f1a;
+  --ink: #ece8e1;
+  --muted: #a29b91;
+  --line: #34312a;
+  --accent: #7cc0ac;
+  --buy: #6fb3a0;
+  --hold: #a49a88;
+  --trim: #d0b45f;
+  --avoid: #c49a72;
+  --sell: #e08a7c;
+  --on-fill: #171613;
+  --warn-bg: #2b2618;
+  --warn-line: #52472a;
+  --err-bg: #2e1f1c;
+  --err-line: #5d3e37;
+  --ok-bg: #1b2620;
+  --calm-bg: #202329;
+  --pos: #7cc0ac;
+  --neg: #e0958a;
+  /* Al 7 % un área sobre fondo oscuro no se ve; el gráfico perdía su relleno. */
+  --chart-area: .14;
 }
 
 * { box-sizing: border-box; }
@@ -49,7 +93,7 @@ a { color: var(--accent); }
 .nav__note { margin-left: auto; font-size: 12px; color: var(--muted); }
 .badge {
   display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 10px;
-  background: var(--accent); color: #fff; font-size: 12px;
+  background: var(--accent); color: var(--on-fill); font-size: 12px;
 }
 
 /* --- estructura --- */
@@ -73,16 +117,16 @@ h4 { font-size: 14px; margin: 16px 0 6px; text-transform: uppercase; letter-spac
 .field__help { color: var(--muted); font-size: 14px; margin: 2px 0 8px; }
 input, select, textarea {
   font: inherit; padding: 8px 10px; border: 1px solid var(--line);
-  border-radius: 6px; background: #fff; color: var(--ink);
+  border-radius: 6px; background: var(--card); color: var(--ink);
 }
 input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 button, .button {
   font: inherit; padding: 8px 14px; border: 1px solid var(--line); border-radius: 6px;
-  background: #fff; color: var(--ink); cursor: pointer; text-decoration: none;
+  background: var(--card); color: var(--ink); cursor: pointer; text-decoration: none;
 }
 button:hover { border-color: var(--accent); }
-button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-button.danger { background: var(--sell); color: #fff; border-color: var(--sell); }
+button.primary { background: var(--accent); color: var(--on-fill); border-color: var(--accent); }
+button.danger { background: var(--sell); color: var(--on-fill); border-color: var(--sell); }
 button:disabled { opacity: .5; cursor: not-allowed; }
 button.linkish {
   border: none; background: none; color: var(--accent); padding: 0;
@@ -139,7 +183,7 @@ button.linkish {
 .rec__thesis { font-size: 16px; margin: 10px 0; max-width: 70ch; }
 .rec__body { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 4px; }
 .rec__section { margin: 14px 0; }
-.act { padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 14px; color: #fff; background: var(--hold); white-space: nowrap; }
+.act { padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 14px; color: var(--on-fill); background: var(--hold); white-space: nowrap; }
 .act--buy { background: var(--buy); }
 .act--hold { background: var(--hold); }
 .act--trim { background: var(--trim); }
@@ -202,7 +246,7 @@ button.linkish {
 .chart__line { fill: none; stroke-width: 1.6; }
 .chart__line--up { stroke: var(--buy); }
 .chart__line--down { stroke: var(--sell); }
-.chart__area { opacity: .07; }
+.chart__area { opacity: var(--chart-area); }
 .chart__area--up { fill: var(--buy); }
 .chart__area--down { fill: var(--sell); }
 .chart__cite { font-size: 12px; color: var(--muted); margin-top: 4px; }

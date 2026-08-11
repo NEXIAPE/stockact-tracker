@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api.js'
 import { ErrorBox, Loading, Notice } from '../components/Data.jsx'
+import { efectivo, elegir, preferencia } from '../tema.js'
 
 export default function Settings() {
   const [sources, setSources] = useState(null)
@@ -109,6 +110,8 @@ export default function Settings() {
         </div>
       </section>
 
+      <ThemeSection />
+
       <AccessSection acceso={acceso} onError={setError} />
 
       <section className="card danger">
@@ -137,6 +140,45 @@ export default function Settings() {
         </div>
       </section>
     </div>
+  )
+}
+
+/** Claro u oscuro. Sin previsualizaciones ni animación: se aplica y ya está. */
+function ThemeSection() {
+  const [pref, setPref] = useState(preferencia)
+
+  const cambiar = (p) => {
+    elegir(p)
+    setPref(p)
+  }
+
+  const ETIQUETAS = {
+    auto: 'Automático (sigue a tu sistema)',
+    claro: 'Siempre claro',
+    oscuro: 'Siempre oscuro',
+  }
+
+  return (
+    <section className="card">
+      <h2>Apariencia</h2>
+      <div className="choices">
+        {Object.entries(ETIQUETAS).map(([valor, texto]) => (
+          <label key={valor} className={`choice${pref === valor ? ' on' : ''}`}>
+            <input
+              type="radio"
+              name="tema"
+              checked={pref === valor}
+              onChange={() => cambiar(valor)}
+            />
+            {texto}
+          </label>
+        ))}
+      </div>
+      <p className="muted small">
+        Ahora mismo se ve en <strong>{efectivo(pref)}</strong>. Sólo cambian los colores:
+        ningún dato, ningún cálculo y ninguna regla dependen de esto.
+      </p>
+    </section>
   )
 }
 

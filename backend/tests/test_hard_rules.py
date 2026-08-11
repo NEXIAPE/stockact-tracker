@@ -486,3 +486,59 @@ class TestHouseIndexConnector:
         from app.providers import stockact
 
         assert stockact.fetch_signal("") is None
+
+
+# ---------------------------------------------------------------------------
+class TestThemeHasNoHardcodedColours:
+    """Todo color vive en un token, o el modo oscuro se rompe a trozos.
+
+    El fallo tipico no es que el tema no funcione al escribirlo: es que meses
+    despues alguien anade un `background: #fff` en una regla nueva, en claro se
+    ve bien, y en oscuro aparece un rectangulo blanco que nadie nota hasta que
+    lo abre de noche. Este test lo convierte en un fallo inmediato.
+    """
+
+    CSS = REPO_ROOT / "frontend" / "src" / "styles.css"
+
+    def _fuera_de_los_tokens(self) -> str:
+        """El CSS sin los dos bloques donde los colores SI son literales."""
+        texto = self.CSS.read_text(encoding="utf-8")
+        for selector in (":root {", "[data-theme='dark'] {"):
+            inicio = texto.index(selector)
+            fin = texto.index("}", inicio) + 1
+            texto = texto[:inicio] + texto[fin:]
+        return texto
+
+    def test_no_literal_colours_outside_the_palette(self):
+        resto = self._fuera_de_los_tokens()
+        literales = re.findall(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(", resto)
+        assert not literales, (
+            f"Colores fijos fuera de la paleta: {sorted(set(literales))}. "
+            "Todo color tiene que ser un var(--token) para que el modo oscuro "
+            "lo alcance."
+        )
+
+    def test_both_themes_define_the_same_tokens(self):
+        """Un token que exista solo en claro sale sin definir en oscuro."""
+        texto = self.CSS.read_text(encoding="utf-8")
+
+        def tokens(selector: str) -> set:
+            inicio = texto.index(selector)
+            bloque = texto[inicio : texto.index("}", inicio)]
+            return set(re.findall(r"(--[a-z-]+):", bloque))
+
+        claro = tokens(":root {")
+        oscuro = tokens("[data-theme='dark'] {")
+        assert claro == oscuro, (
+            f"Solo en claro: {sorted(claro - oscuro)}. "
+            f"Solo en oscuro: {sorted(oscuro - claro)}."
+        )
+
+    def test_every_token_used_is_defined(self):
+        texto = self.CSS.read_text(encoding="utf-8")
+        inicio = texto.index(":root {")
+        definidos = set(
+            re.findall(r"(--[a-z-]+):", texto[inicio : texto.index("}", inicio)])
+        )
+        usados = set(re.findall(r"var\((--[a-z-]+)", texto))
+        assert usados <= definidos, f"Tokens usados sin definir: {sorted(usados - definidos)}"

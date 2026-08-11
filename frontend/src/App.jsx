@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import { api, setUnauthorizedHandler } from './api.js'
+import { seguirAlSistema } from './tema.js'
 import Login from './pages/Login.jsx'
 import Alerts from './pages/Alerts.jsx'
 import Analyze from './pages/Analyze.jsx'
@@ -26,6 +27,7 @@ export default function App() {
     // Si la sesión caduca mientras usas la app, se vuelve al acceso.
     setUnauthorizedHandler(() => setSesion((s) => ({ ...s, authenticated: false })))
     comprobarSesion()
+    return seguirAlSistema()
   }, [])
 
   useEffect(() => {

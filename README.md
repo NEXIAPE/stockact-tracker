@@ -26,7 +26,7 @@ Python puro), que se conserva y se integra como señal de contexto. Ver
 | **Cartera** | Registras lo que ya tienes; se valora con precios reales y se revisa concentración y diversificación. Incluye **tu tesis** de cada posición y **cómo te va frente a un fondo amplio**. |
 | **Watchlist** | Símbolos que sigues, con criterios propios de aviso. |
 | **Alertas** | Noticias, movimientos fuertes, criterios cumplidos y desvíos de cartera — siempre como «vale la pena mirar». |
-| **Ajustes** | Estado de las fuentes, exportar todo, borrar todo. |
+| **Ajustes** | Estado de las fuentes, apariencia (claro / oscuro), exportar todo, borrar todo. |
 
 ### Comprar, mantener, recortar, evitar o vender
 
@@ -266,7 +266,7 @@ mirar la cartera a todas horas es una forma conocida de decidir peor.
 ### Tests
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest        # 272 tests
+cd backend && ../.venv/bin/python -m pytest        # 275 tests
 ```
 
 | Archivo | Qué cubre |
