@@ -327,3 +327,15 @@ button.linkish {
 }
 .login__foot { font-size: 12px; color: var(--muted); margin: 10px 0 0; }
 .nav__logout { margin-left: 4px; }
+
+/* --- «más barato que hace poco» ---
+   Sin rojos ni verdes en las cifras: una caída no es una buena noticia ni una
+   mala, es un hecho, y colorearla ya sería opinar. El bloque de acciones
+   sueltas lleva el fondo de aviso porque ahí la advertencia ES el contenido. */
+.card--careful { border-color: var(--warn-line); background: var(--warn-bg); }
+.fallen { border-top: 1px solid var(--line); padding: 12px 0; }
+.fallen:first-of-type { border-top: none; }
+.fallen__head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.fallen__dd { font-size: 20px; font-weight: 700; white-space: nowrap; }
+.fallen__reading { margin: 6px 0; max-width: 70ch; }
+.fallen__body { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 8px; }

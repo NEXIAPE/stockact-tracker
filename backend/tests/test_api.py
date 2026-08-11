@@ -791,3 +791,131 @@ class TestBriefingLoadsWithoutTheNetwork:
         ).json()["today"]
         assert_no_pressure_language(hoy["headline"], "titular comprobando")
         assert_no_pressure_language(hoy["explanation"], "explicación comprobando")
+
+
+# ---------------------------------------------------------------------------
+class TestCheaperMakesNoPromises:
+    """La pantalla «más barato que hace poco».
+
+    Nacio de una peticion cuya premisa era falsa: "cosas que caen y se sabe que
+    volveran a subir". Eso no se sabe de ningun activo. La pantalla existe, pero
+    solo puede afirmar un hecho comprobable —cuanto ha caido— y tiene prohibido
+    insinuar el resto. Estos tests son ese limite.
+    """
+
+    PROHIBIDO = [
+        "volvera a subir", "volverá a subir", "va a subir", "se recuperara",
+        "se recuperará", "rebotara", "rebotará", "suele rebotar",
+        "objetivo de precio", "precio objetivo", "garantiza", "seguro que",
+        "no puede bajar mas", "no puede bajar más", "esta barato",
+    ]
+
+    def _textos(self, payload) -> list:
+        """Todo el texto que la pantalla puede mostrar, venga de donde venga."""
+        salida = []
+
+        def recorrer(nodo):
+            if isinstance(nodo, str):
+                salida.append(nodo)
+            elif isinstance(nodo, dict):
+                for k, v in nodo.items():
+                    # Los titulares son de terceros: no los escribimos nosotros
+                    # y no podemos responder de sus palabras. Se excluyen a
+                    # proposito, y por eso van etiquetados como interpretacion.
+                    if k == "news":
+                        continue
+                    # El descargo cuyo trabajo es ENUMERAR lo que no hay tiene
+                    # que nombrar esas frases para negarlas. Buscarle las
+                    # palabras seria como prohibir la palabra "veneno" en la
+                    # etiqueta que avisa de que no lleva. Se verifica aparte,
+                    # con la regla que le corresponde: ver el test siguiente.
+                    if k == "no_forecast_notice":
+                        continue
+                    recorrer(v)
+            elif isinstance(nodo, list):
+                for v in nodo:
+                    recorrer(v)
+
+        recorrer(payload)
+        return salida
+
+    def test_it_never_predicts_a_recovery(self, client):
+        client.post("/api/profile", json=PROFILE)
+        client.put("/api/portfolio/holdings", json={
+            "ticker": "AAPL", "shares": 10, "avg_cost": 1, "asset_type": "accion"})
+        payload = client.get("/api/cheaper?with_news=false").json()
+
+        for texto in self._textos(payload):
+            bajo = texto.lower()
+            for frase in self.PROHIBIDO:
+                assert frase not in bajo, (
+                    f"La pantalla insinua una recuperacion: {frase!r} en {texto!r}. "
+                    "Nadie sabe si algo que bajo volvera a subir."
+                )
+
+    def test_it_says_out_loud_that_it_does_not_predict(self, client):
+        """El descargo, verificado por lo que DEBE decir en vez de por lo que no.
+
+        Es el unico texto exento del barrido de frases prohibidas, asi que su
+        contenido se fija aqui: tiene que negar explicitamente que se sepa el
+        futuro, no limitarse a evitar ciertas palabras.
+        """
+        client.post("/api/profile", json=PROFILE)
+        aviso = client.get("/api/cheaper?with_news=false").json()["no_forecast_notice"]
+        bajo = aviso.lower()
+        assert "nadie sabe" in bajo
+        assert "no hay ninguna previsi" in bajo
+        # Y no puede afirmar lo contrario de lo que dice negar.
+        assert "seguro" not in bajo and "garantiz" not in bajo
+
+    def test_no_pressure_language_anywhere(self, client):
+        from app.core.guards import assert_no_pressure_language
+
+        client.post("/api/profile", json=PROFILE)
+        client.put("/api/portfolio/holdings", json={
+            "ticker": "AAPL", "shares": 10, "avg_cost": 1, "asset_type": "accion"})
+        payload = client.get("/api/cheaper?with_news=false").json()
+        for texto in self._textos(payload):
+            assert_no_pressure_language(texto, "pantalla de caidas")
+
+    def test_a_single_stock_always_carries_the_warning(self, client):
+        """En una empresa concreta, la advertencia ES el contenido."""
+        client.post("/api/profile", json=PROFILE)
+        client.put("/api/portfolio/holdings", json={
+            "ticker": "AAPL", "shares": 10, "avg_cost": 1, "asset_type": "accion"})
+        d = client.get("/api/cheaper?with_news=false").json()
+        for it in d["individual"]:
+            assert it["warnings"], f"{it['ticker']} se muestra sin advertencia."
+            texto = (it["reading"] + " " + " ".join(it["warnings"])).lower()
+            assert "no significa barato" in texto or "no puede distinguir" in texto
+
+    def test_every_number_shown_is_cited(self, client):
+        """Regla dura numero uno, tambien aqui."""
+        client.post("/api/profile", json=PROFILE)
+        client.put("/api/portfolio/holdings", json={
+            "ticker": "AAPL", "shares": 10, "avg_cost": 1, "asset_type": "accion"})
+        d = client.get("/api/cheaper?with_news=false").json()
+        for it in d["broad"] + d["individual"]:
+            for campo in ("drawdown", "last_close"):
+                dato = it[campo]
+                assert dato["kind"] == "datapoint"
+                assert dato["source_name"], f"{it['ticker']}.{campo} sin fuente."
+                assert dato["as_of"], f"{it['ticker']}.{campo} sin fecha."
+
+    def test_it_is_not_a_market_wide_scanner(self, client):
+        """Solo tu universo. Un escaner de lo que mas cae es una lista de
+        cuchillos cayendo, y seria el descubrimiento diario que la herramienta
+        evita a proposito en todo lo demas."""
+        client.post("/api/profile", json=PROFILE)
+        client.put("/api/portfolio/holdings", json={
+            "ticker": "AAPL", "shares": 10, "avg_cost": 1, "asset_type": "accion"})
+        d = client.get("/api/cheaper?with_news=false").json()
+
+        from app.core.universe import BEGINNER_STARTING_UNIVERSE
+
+        permitidos = set(BEGINNER_STARTING_UNIVERSE) | {"AAPL"}
+        for it in d["broad"] + d["individual"]:
+            assert it["ticker"] in permitidos, (
+                f"{it['ticker']} no esta en tu universo: la pantalla se convirtio "
+                "en un escaner de mercado."
+            )

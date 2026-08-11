@@ -9,6 +9,7 @@ from ..core.ideas import ALTERNATIVES_NOTICE
 from ..core.ideas import generate as generate_ideas
 from ..core.recommendation import InsufficientData, analyze
 from ..db import get_conn
+from ..core import cheaper as cheaper_mod
 from ..core import thesis as thesis_mod
 from ..deps import context, load_user_facts
 
@@ -127,3 +128,16 @@ def price_series(ticker: str, days: int = Query(default=365, ge=30, le=1825)):
         "source_url": serie.source.url,
         "total_bars": len(serie.bars),
     }
+
+
+@router.get("/cheaper")
+def cheaper(with_news: bool = True):
+    """Lo tuyo que cotiza por debajo de su máximo de 52 semanas.
+
+    NO es una lista de oportunidades y no lleva ninguna previsión de
+    recuperación: el único hecho que devuelve es cuánto ha caído cada cosa.
+    Ver ``core/cheaper.py`` para el porqué de cada decisión.
+    """
+    with get_conn() as conn:
+        profile, strategy, state = context(conn)
+        return cheaper_mod.find(conn, profile, strategy, state, with_news=with_news)

@@ -5,6 +5,7 @@ import Login from './pages/Login.jsx'
 import Alerts from './pages/Alerts.jsx'
 import Analyze from './pages/Analyze.jsx'
 import Briefing from './pages/Briefing.jsx'
+import Cheaper from './pages/Cheaper.jsx'
 import Onboarding from './pages/Onboarding.jsx'
 import Portfolio from './pages/Portfolio.jsx'
 import Settings from './pages/Settings.jsx'
@@ -57,6 +58,7 @@ export default function App() {
         <span className="nav__brand">Mi inversión</span>
         <NavLink to="/">Briefing</NavLink>
         <NavLink to="/analizar">Analizar</NavLink>
+        <NavLink to="/mas-barato">Más barato</NavLink>
         <NavLink to="/cartera">Cartera</NavLink>
         <NavLink to="/watchlist">Watchlist</NavLink>
         <NavLink to="/alertas">
@@ -79,6 +81,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={configured ? <Briefing /> : <Navigate to="/perfil" replace />} />
           <Route path="/analizar" element={<Analyze />} />
+          <Route path="/mas-barato" element={<Cheaper />} />
           <Route path="/cartera" element={<Portfolio />} />
           <Route path="/watchlist" element={<Watchlist />} />
           <Route path="/alertas" element={<Alerts />} />

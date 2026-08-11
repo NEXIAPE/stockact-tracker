@@ -22,6 +22,7 @@ Python puro), que se conserva y se integra como señal de contexto. Ver
 | **Perfil / onboarding** | Define capital, aporte mensual, riesgo, horizonte y objetivos → deriva una estrategia mínima, explicando el porqué de cada regla. |
 | **Briefing diario** | Arriba del todo, en una línea: **¿hay algo que hacer hoy?** Debajo, cartera, alertas, desvíos e ideas. |
 | **Analizar** | Escribe un símbolo y recibe la recomendación estructurada completa. |
+| **Más barato** | Qué de tu universo cotiza por debajo de su máximo del último año, con los titulares que explican por qué. **Sin ninguna previsión de recuperación.** |
 | **Cartera** | Registras lo que ya tienes; se valora con precios reales y se revisa concentración y diversificación. Incluye **tu tesis** de cada posición y **cómo te va frente a un fondo amplio**. |
 | **Watchlist** | Símbolos que sigues, con criterios propios de aviso. |
 | **Alertas** | Noticias, movimientos fuertes, criterios cumplidos y desvíos de cartera — siempre como «vale la pena mirar». |
@@ -72,6 +73,26 @@ que más sube es la forma más rápida de que compres caro, y una herramienta qu
 cada mañana presenta algo nuevo y emocionante enseña a operar de más. **La
 palanca eres tú**: si quieres ver otra cosa, añádela a tu watchlist y entra en
 la rotación.
+
+### «Más barato» no es «oportunidad»
+
+Esta pantalla nació de una petición cuya premisa era falsa: *«cosas que caen y
+se sabe que volverán a subir»*. **Eso no se sabe de ningún activo, nunca.** Una
+caída y un negocio rompiéndose se ven idénticos desde fuera.
+
+Así que afirma **un solo hecho comprobable** —cuánto ha caído cada cosa respecto
+de su máximo de 52 semanas— y deja la conclusión abierta. No hay estimaciones de
+recuperación ni objetivos de precio: serían números inventados.
+
+Los fondos amplios y las acciones sueltas van **separados**, porque una caída
+significa cosas distintas en cada caso. Un fondo amplio más barato es el mismo
+conjunto de miles de empresas a menor precio; una acción suelta más barata puede
+ser una ganga o el principio del final, y la herramienta no puede distinguirlo.
+
+Sólo mira **tu universo**, nunca todo el mercado: una lista de lo que más ha
+caído hoy es una lista de cosas que pueden seguir cayendo. Y si aportas cada
+mes, se te recuerda que ese aporte **ya compra más participaciones cuando el
+precio está bajo**, sin que tengas que acertar el momento.
 
 ### Tu tesis: la única señal de venta que vale
 
@@ -245,7 +266,7 @@ mirar la cartera a todas horas es una forma conocida de decidir peor.
 ### Tests
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest        # 266 tests
+cd backend && ../.venv/bin/python -m pytest        # 272 tests
 ```
 
 | Archivo | Qué cubre |
