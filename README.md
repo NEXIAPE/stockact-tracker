@@ -190,6 +190,12 @@ email (y la clave de Finnhub si la quieres) y termina ejecutando el diagnóstico
 de fuentes. El de arranque abre el motor y la interfaz en dos ventanas y te lleva
 al navegador.
 
+> **Desde dónde se lanzan los comandos.** Salvo los tests, todos se ejecutan
+> desde la **raíz del repositorio**, no desde `backend\`. Si estás dentro de
+> `backend\`, `.venv` no existe ahí y PowerShell responde algo tan poco claro
+> como *«El módulo '.venv' no pudo cargarse»*. Vuelve con `cd ..` y listo.
+> En PowerShell conviene además el prefijo `.\` delante de la ruta.
+
 ### macOS y Linux — a mano
 
 ```bash
@@ -269,6 +275,12 @@ mirar la cartera a todas horas es una forma conocida de decidir peor.
 cd backend && ../.venv/bin/python -m pytest        # 275 tests
 ```
 
+```powershell
+# Windows (PowerShell)
+cd backend
+..\.venv\Scripts\python.exe -m pytest
+```
+
 | Archivo | Qué cubre |
 |---|---|
 | `test_hard_rules.py` | Las cuatro reglas innegociables y la honestidad sobre datos viejos. |
@@ -312,7 +324,8 @@ llega hasta él es el propio Tailscale, corriendo en esa misma máquina.
 1. Pon tu contraseña (te la pide sin mostrarla, sólo guarda el hash):
 
    ```powershell
-   .venv\Scripts\python.exe backend\set_password.py
+   cd C:\ruta\a\stockact-tracker      # la RAIZ del repositorio, no backend\
+   .\.venv\Scripts\python.exe backend\set_password.py
    ```
 
 2. Instala [Tailscale](https://tailscale.com/download) en el ordenador y en el
