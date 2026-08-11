@@ -1,0 +1,8 @@
+{"meta":{"symbol":"VOO","interval":"1day","currency":"USD","exchange":"NYSE","type":"ETF"},
+ "values":[
+  {"datetime":"2026-08-06","open":"499.40","high":"502.10","low":"498.85","close":"501.77","volume":"4102885"},
+  {"datetime":"2026-08-05","open":"495.60","high":"499.73","low":"495.00","close":"499.18","volume":"3990120"},
+  {"datetime":"2026-08-04","open":"500.10","high":"500.99","low":"494.31","close":"495.02","volume":"5120448"},
+  {"datetime":"2026-08-03","open":"no-numerico","high":"x","low":"y","close":"500.85","volume":""}
+ ],
+ "status":"ok"}

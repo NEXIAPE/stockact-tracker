@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Apple Inc. EDGAR filings</title>
+  <entry>
+    <title>10-Q - Quarterly report</title>
+    <link rel="alternate" type="text/html" href="https://www.sec.gov/Archives/edgar/data/320193/000032019326000011.htm"/>
+    <updated>2026-08-07T16:30:00-04:00</updated>
+    <category term="10-Q"/>
+  </entry>
+  <entry>
+    <title>8-K - Current report</title>
+    <link rel="alternate" type="text/html" href="https://www.sec.gov/Archives/edgar/data/320193/000032019326000009.htm"/>
+    <updated>2026-08-01T09:15:00-04:00</updated>
+  </entry>
+</feed>

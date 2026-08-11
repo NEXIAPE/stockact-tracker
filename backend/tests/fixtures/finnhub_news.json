@@ -1,0 +1,7 @@
+[{"category": "company", "datetime": 1786048200, "headline": "Apple amplía su programa de recompra",
+  "id": 7788, "related": "AAPL", "source": "Reuters",
+  "summary": "El consejo aprueba una ampliación del programa.",
+  "url": "https://example.invalid/news/7788"},
+ {"category": "company", "datetime": null, "headline": "Titular sin fecha",
+  "id": 7789, "related": "AAPL", "source": "MarketWatch", "summary": "",
+  "url": "https://example.invalid/news/7789"}]

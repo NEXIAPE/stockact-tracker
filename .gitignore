@@ -1,24 +1,43 @@
-# Base de datos local (se regenera)
+# Bases de datos locales (se regeneran)
 stockact.db
+personal_invest.db
 *.db
 
-# Informes generados
+# Caché de respuestas de las fuentes de datos
+.data_cache/
+
+# Informes generados por el rastreador STOCK Act
 informe_*.txt
 *.report.txt
 
-# Logs de cron
+# Logs
 cron.log
 *.log
 
-# Artefactos de Python
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
 venv/
 env/
+.pytest_cache/
+
+# Node / frontend
+node_modules/
+dist/
+.vite/
 
 # SO / editores
 .DS_Store
 .idea/
 .vscode/
+
+# Briefings generados
+briefing_*.txt
+
+# Configuracion local de Windows (email, clave de Finnhub)
+config.local.ps1
+
+# Configuracion local con tus datos (el ejemplo si se versiona)
+.env

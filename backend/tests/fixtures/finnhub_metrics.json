@@ -1,0 +1,6 @@
+{"symbol": "AAPL", "metricType": "all",
+ "metric": {"peBasicExclExtraTTM": 34.82, "netProfitMarginTTM": 24.35,
+            "totalDebt/totalEquityQuarterly": 1.87, "dividendYieldIndicatedAnnual": 0.42,
+            "52WeekHigh": 244.61, "52WeekLow": 168.02, "beta": 1.21,
+            "revenueGrowthTTMYoy": 6.4, "unknownMetricWeDoNotRead": 999,
+            "peNormalizedAnnual": null}}

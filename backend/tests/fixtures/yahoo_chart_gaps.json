@@ -1,0 +1,7 @@
+{"chart":{"result":[{"meta":{"currency":"USD","symbol":"XYZ"},
+ "timestamp":[1785412800,1785499200,1785758400,1785844800],
+ "indicators":{
+   "quote":[{"open":[10.0,null,12.0,13.0],"high":[10.5,null,12.5,13.5],
+             "low":[9.5,null,11.5,12.5],"close":[10.2,null,12.2,13.2],
+             "volume":[100,null,300,400]}]}}],
+ "error":null}}
